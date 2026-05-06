@@ -444,6 +444,10 @@ button {
   padding: 10px;
 }
 
+.print-only-board {
+  display: none;
+}
+
 .board-cell {
   align-items: center;
   aspect-ratio: 1;
@@ -761,8 +765,21 @@ button {
     max-width: 100%;
   }
 
+  .print-frame > .communication-board:not(.print-only-board) {
+    display: none;
+  }
+
+  .print-only-board {
+    display: grid;
+  }
+
   .board-cell {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
+  }
+
+  .print-cell {
+    aspect-ratio: 1;
+    min-height: 28mm;
   }
 }

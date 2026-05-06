@@ -269,6 +269,11 @@ export function PictoStudio() {
     [activeBoard.cells, effectiveSelectedCellId],
   );
 
+  const printableCells = useMemo(
+    () => activeBoard.cells.filter((cell) => Boolean(cell.pictoId)),
+    [activeBoard.cells],
+  );
+
   const lastSaved = useMemo(
     () => new Date(activeProject.updatedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
     [activeProject.updatedAt],
@@ -745,6 +750,32 @@ export function PictoStudio() {
                       </button>
                     );
                   })}
+                </div>
+
+                <div
+                  className="communication-board print-only-board"
+                  style={{
+                    gridTemplateColumns: `repeat(${Math.min(activeBoard.cols, Math.max(printableCells.length, 1))}, minmax(0, 1fr))`,
+                    gap: activeBoard.gap,
+                  }}
+                >
+                  {printableCells.map((cell) => (
+                    <div
+                      key={`print-${cell.id}`}
+                      className={`board-cell print-cell ${cell.bg === "#111827" ? "dark-cell" : ""}`}
+                      style={{ backgroundColor: cell.bg }}
+                    >
+                      {activeBoard.labelPosition === "top" ? (
+                        <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
+                      ) : null}
+                      <div className="picto-image-wrap">
+                        <img src={pictogramUrl(cell.pictoId!, cell.options)} alt={cell.label} draggable={false} />
+                      </div>
+                      {activeBoard.labelPosition === "bottom" ? (
+                        <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
+                      ) : null}
+                    </div>
+                  ))}
                 </div>
 
                 <p className="print-attribution">
