@@ -245,6 +245,9 @@ export function PictoStudio() {
   const [hydrated, setHydrated] = useState(false);
   const [printOrientation, setPrintOrientation] = useState<PrintOrientation>("landscape");
   const boardRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLElement>(null);
+  const libraryRef = useRef<HTMLElement>(null);
+  const inspectorRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeProject = useMemo(
@@ -390,6 +393,12 @@ export function PictoStudio() {
       },
     });
     setSelectedCellId(target.id);
+
+    if (window.matchMedia("(max-width: 860px)").matches) {
+      window.setTimeout(() => {
+        canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
   };
 
   const swapCells = (fromId: string, toId: string) => {
@@ -579,8 +588,20 @@ export function PictoStudio() {
             <button onClick={() => setNoticeOpen(true)}>Ver aviso</button>
           </div>
 
+          <nav className="mobile-jumpbar" aria-label="Navegacion movil">
+            <button onClick={() => canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+              Tablero
+            </button>
+            <button onClick={() => libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+              Buscar pictos
+            </button>
+            <button onClick={() => inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+              Ajustes
+            </button>
+          </nav>
+
           <div className="studio-grid">
-            <aside className="library-panel" aria-label="Biblioteca de pictogramas">
+            <aside className="library-panel" aria-label="Biblioteca de pictogramas" ref={libraryRef}>
               <div className="panel-heading">
                 <div>
                   <p className="eyebrow">ARASAAC</p>
@@ -651,7 +672,7 @@ export function PictoStudio() {
               </div>
             </aside>
 
-            <section className="canvas-zone">
+            <section className="canvas-zone" ref={canvasRef}>
               <div className="board-tabs" aria-label="Tableros del proyecto">
                 {activeProject.boards.map((board) => (
                   <button
@@ -785,7 +806,7 @@ export function PictoStudio() {
               </div>
             </section>
 
-            <aside className="inspector-panel" aria-label="Inspector">
+            <aside className="inspector-panel" aria-label="Inspector" ref={inspectorRef}>
               <div className="panel-heading">
                 <div>
                   <p className="eyebrow">Inspector</p>

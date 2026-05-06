@@ -255,6 +255,10 @@ button {
   padding: 0 12px;
 }
 
+.mobile-jumpbar {
+  display: none;
+}
+
 .studio-grid {
   display: grid;
   gap: 14px;
@@ -383,6 +387,12 @@ button {
 
 .canvas-zone {
   min-width: 0;
+  scroll-margin-top: 12px;
+}
+
+.library-panel,
+.inspector-panel {
+  scroll-margin-top: 12px;
 }
 
 .board-tabs {
@@ -692,6 +702,71 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .mobile-jumpbar {
+    background: #101827;
+    border: 1px solid #ffffff20;
+    border-radius: 8px;
+    bottom: 10px;
+    box-shadow: 0 12px 40px #10182733;
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin: 10px 0 14px;
+    padding: 6px;
+    position: sticky;
+    z-index: 20;
+  }
+
+  .mobile-jumpbar button {
+    background: #ffffff;
+    border: 0;
+    border-radius: 7px;
+    color: #101827;
+    font-size: 13px;
+    font-weight: 850;
+    min-height: 38px;
+    padding: 0 8px;
+  }
+
+  .canvas-zone {
+    order: 1;
+  }
+
+  .library-panel {
+    order: 2;
+  }
+
+  .inspector-panel {
+    order: 3;
+  }
+
+  .canvas-zone,
+  .library-panel,
+  .inspector-panel {
+    scroll-margin-top: 12px;
+  }
+
+  .board-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .board-title-wrap input {
+    flex: 1;
+    width: 100%;
+  }
+
+  .toolbar-buttons {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) minmax(0, 1.45fr);
+  }
+
+  .toolbar-buttons .command-button {
+    justify-content: center;
+    padding-inline: 9px;
+  }
+
   .results-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     max-height: none;
@@ -737,6 +812,7 @@ button {
   .studio-rail,
   .topbar,
   .cache-warning,
+  .mobile-jumpbar,
   .library-panel,
   .inspector-panel,
   .board-tabs,
