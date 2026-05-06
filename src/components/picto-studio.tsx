@@ -28,6 +28,7 @@ import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 type Language = "es" | "en" | "fr" | "pt" | "ca" | "it" | "de";
 type SearchMode = "search" | "bestsearch" | "new";
 type LabelPosition = "bottom" | "top";
+type PrintOrientation = "portrait" | "landscape";
 
 type ImageOptions = {
   color: boolean;
@@ -242,6 +243,7 @@ export function PictoStudio() {
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [printOrientation, setPrintOrientation] = useState<PrintOrientation>("landscape");
   const boardRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -436,6 +438,22 @@ export function PictoStudio() {
     anchor.href = dataUrl;
     anchor.download = `${activeProject.name.replace(/\W+/g, "-").toLowerCase()}-${activeBoard.title.replace(/\W+/g, "-").toLowerCase()}.png`;
     anchor.click();
+  };
+
+  const printBoard = () => {
+    const style = document.createElement("style");
+    style.id = "pictomesa-print-style";
+    style.textContent = `@page { size: A4 ${printOrientation}; margin: 10mm; }`;
+    document.head.appendChild(style);
+
+    const cleanup = () => {
+      style.remove();
+      window.removeEventListener("afterprint", cleanup);
+    };
+
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+    window.setTimeout(cleanup, 1200);
   };
 
   const exportProject = () => {
@@ -674,11 +692,13 @@ export function PictoStudio() {
                   <button className="icon-button" title="Leer tablero" onClick={speakBoard}>
                     <Volume2 size={18} />
                   </button>
-                  <button className="icon-button" title="Exportar PNG" onClick={() => void exportPng()}>
+                  <button className="command-button secondary" title="Exportar tablero como PNG" onClick={() => void exportPng()}>
                     <Download size={18} />
+                    PNG
                   </button>
-                  <button className="icon-button" title="Imprimir" onClick={() => window.print()}>
+                  <button className="command-button print-action" title="Imprimir tablero activo" onClick={printBoard}>
                     <Printer size={18} />
+                    Imprimir tablero
                   </button>
                 </div>
               </div>
@@ -810,6 +830,26 @@ export function PictoStudio() {
                   </button>
                 ))}
               </div>
+
+              <div className="control-group">
+                <label>
+                  <Printer size={16} />
+                  Impresion
+                </label>
+                <select
+                  value={printOrientation}
+                  onChange={(event) => setPrintOrientation(event.target.value as PrintOrientation)}
+                  aria-label="Orientacion de impresion"
+                >
+                  <option value="landscape">A4 horizontal</option>
+                  <option value="portrait">A4 vertical</option>
+                </select>
+              </div>
+
+              <button className="command-button print-wide" onClick={printBoard}>
+                <Printer size={18} />
+                Imprimir tablero activo
+              </button>
 
               <div className="divider" />
 

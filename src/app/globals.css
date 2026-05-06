@@ -137,6 +137,11 @@ button {
   gap: 10px;
 }
 
+.toolbar-buttons {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .topbar select,
 .library-filters select,
 .control-group select,
@@ -195,6 +200,24 @@ button {
 .command-button.primary {
   background: var(--teal);
   border-color: var(--teal);
+}
+
+.command-button.secondary {
+  background: #ffffff;
+  border-color: #d6cec0;
+  color: #101827;
+}
+
+.command-button.print-action,
+.command-button.print-wide {
+  background: var(--teal);
+  border-color: var(--teal);
+}
+
+.command-button.print-wide {
+  justify-content: center;
+  margin: 0 0 12px;
+  width: 100%;
 }
 
 .command-button.danger {
@@ -733,5 +756,13 @@ button {
 
   .communication-board {
     break-inside: avoid;
+    margin-inline: auto;
+    max-height: calc(100vh - 24mm);
+    max-width: 100%;
+  }
+
+  .board-cell {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 }
