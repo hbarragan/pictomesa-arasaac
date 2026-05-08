@@ -423,6 +423,24 @@ button {
   text-transform: none;
 }
 
+.api-status {
+  background: #edf7f4;
+  border: 1px solid #c8e3dd;
+  border-radius: 8px;
+  color: #0f625f;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+  margin-top: 12px;
+  padding: 9px 10px;
+}
+
+.api-status.error {
+  background: #fff1f0;
+  border-color: #f1b7b0;
+  color: #a23226;
+}
+
 .empty-library-note {
   background: #fff7ed;
   border: 1px solid #fed7aa;

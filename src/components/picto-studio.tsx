@@ -281,6 +281,7 @@ export function PictoStudio() {
   );
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
+  const [apiStatus, setApiStatus] = useState("ARASAAC pendiente de consultar");
   const [dragCellId, setDragCellId] = useState<string | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
@@ -435,11 +436,13 @@ export function PictoStudio() {
     if (!useArasaac) {
       setResults([]);
       setApiError("");
+      setApiStatus("ARASAAC desactivado por checkbox");
       return;
     }
 
     setLoading(true);
     setApiError("");
+    setApiStatus("Conectando con ARASAAC...");
 
     try {
       const path =
@@ -449,6 +452,7 @@ export function PictoStudio() {
 
       if (mode !== "new" && !query.trim()) {
         setResults([]);
+        setApiStatus("Escribe una busqueda para consultar ARASAAC");
         return;
       }
 
@@ -460,8 +464,11 @@ export function PictoStudio() {
 
       const data = (await response.json()) as PictoResult[];
       setResults(Array.isArray(data) ? data : []);
+      setApiStatus(`ARASAAC conectado: ${Array.isArray(data) ? data.length : 0} resultados`);
     } catch (error) {
-      setApiError(error instanceof Error ? error.message : "No se pudo consultar ARASAAC");
+      const message = error instanceof Error ? error.message : "No se pudo consultar ARASAAC";
+      setApiError(message);
+      setApiStatus(`Error ARASAAC: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -964,6 +971,7 @@ export function PictoStudio() {
 
               {apiError ? <p className="error-text">{apiError}</p> : null}
               {loading ? <p className="muted">Consultando ARASAAC...</p> : null}
+              <div className={`api-status ${apiError ? "error" : ""}`}>{apiStatus}</div>
 
               {useLocalLibrary ? (
                 <div className="local-results-summary">
