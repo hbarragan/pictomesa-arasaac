@@ -180,7 +180,7 @@ function makeBoard(title = "Tablero principal", rows = 4, cols = 5): Board {
   };
 }
 
-function makeProject(name = "Mi tablero ARASAAC"): Project {
+function makeProject(name = "Mi tablero Amaretea"): Project {
   const board = makeBoard();
 
   return {
@@ -281,7 +281,7 @@ export function PictoStudio() {
   );
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
-  const [apiStatus, setApiStatus] = useState("ARASAAC pendiente de consultar");
+  const [apiStatus, setApiStatus] = useState("Proveedor de imagenes pendiente de consultar");
   const [dragCellId, setDragCellId] = useState<string | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
@@ -438,13 +438,13 @@ export function PictoStudio() {
     if (!useArasaac) {
       setResults([]);
       setApiError("");
-      setApiStatus("ARASAAC desactivado por checkbox");
+      setApiStatus("Proveedor de pictogramas desactivado");
       return;
     }
 
     setLoading(true);
     setApiError("");
-    setApiStatus("Conectando con ARASAAC...");
+    setApiStatus("Conectando con proveedor de pictogramas...");
 
     try {
       const path =
@@ -454,23 +454,23 @@ export function PictoStudio() {
 
       if (mode !== "new" && !query.trim()) {
         setResults([]);
-        setApiStatus("Escribe una busqueda para consultar ARASAAC");
+        setApiStatus("Escribe una busqueda para consultar el proveedor de pictogramas");
         return;
       }
 
       const response = await fetch(path);
 
       if (!response.ok) {
-        throw new Error(`ARASAAC respondió con ${response.status}`);
+        throw new Error(`El proveedor de pictogramas respondio con ${response.status}`);
       }
 
       const data = (await response.json()) as PictoResult[];
       setResults(Array.isArray(data) ? data : []);
-      setApiStatus(`ARASAAC conectado: ${Array.isArray(data) ? data.length : 0} resultados`);
+      setApiStatus(`Proveedor ARASAAC conectado: ${Array.isArray(data) ? data.length : 0} resultados`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudo consultar ARASAAC";
+      const message = error instanceof Error ? error.message : "No se pudo consultar el proveedor de pictogramas";
       setApiError(message);
-      setApiStatus(`Error ARASAAC: ${message}`);
+      setApiStatus(`Error del proveedor de pictogramas: ${message}`);
     } finally {
       setLoading(false);
     }
@@ -762,11 +762,11 @@ export function PictoStudio() {
             <div className="brand-mark">
               <Bot size={22} aria-hidden />
             </div>
-            <p className="brand-kicker">PictoMesa</p>
+            <p className="brand-kicker">Amaretea</p>
           </div>
 
           <nav className="rail-actions" aria-label="Acciones rápidas">
-            <button title="Biblioteca ARASAAC" aria-label="Biblioteca ARASAAC">
+            <button title="Fuentes de pictogramas" aria-label="Fuentes de pictogramas">
               <Library size={20} />
             </button>
             <button title="Tableros" aria-label="Tableros">
@@ -784,7 +784,7 @@ export function PictoStudio() {
         <section className="workspace">
           <header className="topbar">
             <div>
-              <p className="eyebrow">Editor CAA con API pública de ARASAAC</p>
+              <p className="eyebrow">Editor visual de apoyos CAA</p>
               <input
                 className="project-title"
                 value={activeProject.name}
@@ -837,8 +837,8 @@ export function PictoStudio() {
             <Info size={18} />
             <p>
               Los proyectos se guardan solo en la cache/localStorage de este navegador. Si borras la cache o los datos
-              del sitio, perderas los proyectos. Esta app no guarda datos en servidor y consulta la API publica de
-              ARASAAC.
+              del sitio, perderas los proyectos. Esta herramienta no guarda datos en servidor y solo consulta fuentes
+              externas cuando las activas.
             </p>
             <button onClick={() => setNoticeOpen(true)}>Ver aviso</button>
           </div>
@@ -846,7 +846,7 @@ export function PictoStudio() {
           <div className="amaretea-notice">
             <Info size={18} />
             <p>
-              Esta web ha sido creada desde <a href="https://www.amaretea.com" target="_blank" rel="noreferrer">www.amaretea.com</a> para ayudar en el dia a dia de docentes de educacion especial. Amaretea no se responsabiliza del uso final, adaptacion, impresion o distribucion de los materiales generados por cada usuario.
+              Esta web ha sido creada desde <a href="https://www.amaretea.com" target="_blank" rel="noreferrer">www.amaretea.com</a> sin animo de comercializar pictogramas, con el fin de ayudar en el dia a dia de docentes de educacion especial. Cada usuario es responsable del uso final, adaptacion, impresion o distribucion de sus materiales.
             </p>
             <button onClick={() => setLegalOpen(true)}>Ver legal</button>
           </div>
@@ -880,7 +880,7 @@ export function PictoStudio() {
             <aside className="library-panel" aria-label="Biblioteca de pictogramas" ref={libraryRef}>
               <div className="panel-heading">
                 <div>
-                  <p className="eyebrow">ARASAAC y local</p>
+                  <p className="eyebrow">Fuentes de imagenes</p>
                   <h2>Biblioteca viva</h2>
                 </div>
                 <div className="panel-heading-actions">
@@ -899,7 +899,7 @@ export function PictoStudio() {
               <div className="source-toggles" aria-label="Fuentes de pictogramas">
                 <label>
                   <input type="checkbox" checked={useArasaac} onChange={(event) => setUseArasaac(event.target.checked)} />
-                  Biblioteca ARASAAC
+                  Proveedor ARASAAC
                 </label>
                 <label>
                   <input
@@ -1005,7 +1005,7 @@ export function PictoStudio() {
               </div>
 
               {apiError ? <p className="error-text">{apiError}</p> : null}
-              {loading ? <p className="muted">Consultando ARASAAC...</p> : null}
+              {loading ? <p className="muted">Consultando proveedor de pictogramas...</p> : null}
               <div className={`api-status ${apiError ? "error" : ""}`}>{apiStatus}</div>
 
               {useLocalLibrary ? (
@@ -1225,10 +1225,10 @@ export function PictoStudio() {
                 </div>
 
                 <p className="print-attribution">
-                  Pictogramas: Sergio Palao / Gobierno de Aragon. Origen: ARASAAC (https://arasaac.org). Licencia:
-                  Creative Commons BY-NC-SA. Documento generado con una herramienta creada desde www.amaretea.com para
-                  apoyar a docentes de educacion especial. El usuario es responsable del uso, adaptacion, impresion,
-                  revision de derechos y distribucion de este material.
+                  Proveedor de pictogramas: ARASAAC. Autor: Sergio Palao. Titular: Gobierno de Aragon. Origen:
+                  https://arasaac.org. Licencia: Creative Commons BY-NC-SA. Documento generado con una herramienta no
+                  comercial creada desde www.amaretea.com para apoyar a docentes de educacion especial. El usuario es
+                  responsable del uso, adaptacion, impresion, revision de derechos y distribucion de este material.
                 </p>
               </div>
             </section>
@@ -1385,7 +1385,7 @@ export function PictoStudio() {
                         })
                       }
                     />
-                    Color ARASAAC
+                    Color del proveedor
                   </label>
 
                   <div className="control-group">
@@ -1536,30 +1536,29 @@ export function PictoStudio() {
       {legalOpen ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="legal-title">
           <div className="modal legal-modal">
-            <h2 id="legal-title">Uso legal de pictogramas ARASAAC</h2>
+            <h2 id="legal-title">Aviso legal y uso de imagenes</h2>
             <p>
-              Los pictogramas son propiedad del Gobierno de Aragon y han sido creados por Sergio Palao para ARASAAC. Se
-              distribuyen bajo licencia Creative Commons BY-NC-SA, por lo que esta app muestra atribucion, origen,
-              licencia y aviso de uso no comercial.
+              Esta web ha sido creada desde <a href="https://www.amaretea.com" target="_blank" rel="noreferrer">www.amaretea.com</a> sin animo de comercializar pictogramas ni generar ingresos por su uso, con el fin de ayudar en el dia a dia de docentes de educacion especial.
             </p>
             <p>
-              La app usa la API publica de ARASAAC en tiempo real. No almacena pictogramas ni proyectos en servidor; el
-              guardado de proyectos es local en el navegador.
+              ARASAAC se utiliza unicamente como proveedor publico de pictogramas cuando esa fuente esta activada. Sus
+              pictogramas son de Sergio Palao, titularidad del Gobierno de Aragon, y se distribuyen bajo licencia
+              Creative Commons BY-NC-SA, que exige atribucion, uso no comercial y compartir bajo la misma licencia
+              cuando corresponda.
             </p>
             <p>
-              Esta web ha sido creada desde www.amaretea.com con el fin de ayudar en el dia a dia de docentes de
-              educacion especial. Amaretea no se responsabiliza del uso concreto que haga cada usuario, de la idoneidad
-              pedagogica o clinica de los tableros, de la exactitud de pictogramas seleccionados, ni de la impresion,
-              modificacion, redistribucion o publicacion de los materiales generados.
+              La herramienta no esta afiliada ni respaldada por ARASAAC o el Gobierno de Aragon. No almacena proyectos,
+              pictogramas ni imagenes locales en servidor; el guardado de proyectos y biblioteca local ocurre en este
+              navegador.
             </p>
             <p>
-              Antes de compartir o imprimir materiales, revisa que tienes derecho a usar las imagenes locales que hayas
-              cargado, que se conserva la atribucion ARASAAC cuando corresponda y que el uso respeta la licencia
-              aplicable y las normas de tu centro.
+              Cada usuario es responsable de revisar la idoneidad pedagogica o clinica de los materiales, los derechos
+              de las imagenes locales que cargue, la atribucion cuando corresponda y el cumplimiento de la licencia,
+              normas de su centro y leyes aplicables. Este aviso es informativo y no sustituye asesoramiento legal.
             </p>
             <div className="legal-links">
               <a href="https://arasaac.org/developers/api" target="_blank" rel="noreferrer">
-                API ARASAAC
+                API del proveedor
               </a>
               <a href="https://aulaabierta.arasaac.org/condiciones-de-uso" target="_blank" rel="noreferrer">
                 Condiciones de uso

@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PictoMesa | Editor de pictogramas ARASAAC",
+  title: "Amaretea | Editor de pictogramas",
   description:
-    "Editor de tableros CAA con busqueda, personalizacion, cache local e impresion usando la API publica de ARASAAC.",
+    "Herramienta no comercial para crear e imprimir apoyos visuales CAA con cache local, biblioteca local y proveedores publicos de pictogramas.",
 };
 
 export default function RootLayout({

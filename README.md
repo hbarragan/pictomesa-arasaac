@@ -1,16 +1,16 @@
-# PictoMesa
+# Amaretea
 
-Editor web de tableros de comunicacion aumentativa y alternativa con pictogramas de ARASAAC.
+Editor web no comercial de tableros de comunicacion aumentativa y alternativa, creado desde https://www.amaretea.com para apoyar el dia a dia de docentes de educacion especial.
 
 ## Funciones
 
-- Busqueda de pictogramas por texto, mejores resultados y ultimos pictogramas desde la API publica de ARASAAC.
+- Busqueda de pictogramas por texto, mejores resultados y ultimos pictogramas desde un proveedor publico de imagenes.
 - Editor de tablero con filas, columnas, separacion, texto superior/inferior, colores de celda y reordenacion por arrastrar.
-- Personalizacion de pictogramas: color/blanco y negro, resolucion, tono de piel y color de pelo cuando ARASAAC lo permite.
+- Personalizacion de pictogramas: color/blanco y negro, resolucion, tono de piel y color de pelo cuando el proveedor lo permite.
 - Proyectos y multiples tableros guardados en `localStorage`.
 - Exportacion/importacion de proyecto JSON, exportacion PNG, lectura con voz del navegador e impresion.
 - Aviso visible de cache: si el usuario borra cache/localStorage pierde los proyectos.
-- Atribucion legal en UI, impresion y modal de informacion.
+- Aviso legal y atribucion en UI, impresion y modal de informacion.
 
 ## Desarrollo
 
@@ -28,9 +28,9 @@ npm run build
 npm run start
 ```
 
-## API ARASAAC
+## Proveedor de pictogramas
 
-La app usa un proxy interno en `src/app/api/arasaac/[...path]/route.ts` hacia `https://api.arasaac.org/api` para evitar problemas de CORS y mantener las peticiones bajo el mismo origen de la web.
+La app usa un proxy interno en `src/app/api/arasaac/[...path]/route.ts` hacia `https://api.arasaac.org/api`. ARASAAC se muestra en la interfaz solo como proveedor/creditos/licencia de pictogramas, no como propietario, creador o responsable de esta herramienta.
 
 Rutas usadas:
 
@@ -42,7 +42,9 @@ Rutas usadas:
 
 ## Aviso legal
 
-Los pictogramas son propiedad del Gobierno de Aragon y han sido creados por Sergio Palao para ARASAAC. Se distribuyen bajo licencia Creative Commons BY-NC-SA. Esta app incluye atribucion y aviso de uso no comercial, pero cada despliegue debe revisar si su uso concreto cumple las condiciones de ARASAAC.
+Esta herramienta se ofrece sin animo de comercializar pictogramas ni generar ingresos por su uso. Los pictogramas obtenidos del proveedor ARASAAC son de Sergio Palao, titularidad del Gobierno de Aragon, y se distribuyen bajo licencia Creative Commons BY-NC-SA. La app incluye atribucion, origen, licencia y aviso de uso no comercial, pero cada despliegue y cada usuario debe revisar si su uso concreto cumple las condiciones aplicables.
+
+La herramienta no esta afiliada ni respaldada por ARASAAC o el Gobierno de Aragon. No almacena proyectos, pictogramas ni imagenes locales en servidor; el guardado ocurre en el navegador. Cada usuario es responsable de la idoneidad pedagogica o clinica, de los derechos sobre imagenes locales, de la atribucion y de la impresion o distribucion de los materiales generados. Este aviso es informativo y no sustituye asesoramiento legal.
 
 Fuentes:
 

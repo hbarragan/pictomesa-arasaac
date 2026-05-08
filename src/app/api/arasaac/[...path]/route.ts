@@ -18,7 +18,7 @@ export async function GET(
   const response = await fetch(upstream, {
     headers: {
       Accept: request.headers.get("accept") ?? "*/*",
-      "User-Agent": "PictoMesa/1.0 (+https://arasaac.org)",
+      "User-Agent": "Amaretea/1.0 (+https://www.amaretea.com)",
     },
     next: { revalidate: 3600 },
   });
@@ -37,7 +37,7 @@ export async function GET(
 
     return Response.json(
       {
-        error: "ARASAAC request failed",
+        error: "Provider request failed",
         status: response.status,
         detail: message.slice(0, 500),
       },
