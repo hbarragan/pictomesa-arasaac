@@ -1,6 +1,6 @@
 # Amaretea
 
-Editor web no comercial de tableros de comunicacion aumentativa y alternativa, creado desde https://www.amaretea.com para apoyar el dia a dia de docentes de educacion especial.
+Editor web no comercial de tableros de comunicacion aumentativa y alternativa, creado desde https://amaretea.es/ para apoyar el dia a dia de docentes de educacion especial.
 
 ## Funciones
 

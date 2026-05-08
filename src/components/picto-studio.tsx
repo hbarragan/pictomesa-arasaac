@@ -935,7 +935,7 @@ export function PictoStudio() {
           <div className="amaretea-notice">
             <Info size={18} />
             <p>
-              Esta web ha sido creada desde <a href="https://www.amaretea.com" target="_blank" rel="noreferrer">www.amaretea.com</a> sin animo de comercializar pictogramas, con el fin de ayudar en el dia a dia de docentes de educacion especial. Cada usuario es responsable del uso final, adaptacion, impresion o distribucion de sus materiales.
+              Esta web ha sido creada desde <a href="https://amaretea.es/" target="_blank" rel="noreferrer">amaretea.es</a> sin animo de comercializar pictogramas, con el fin de ayudar en el dia a dia de docentes de educacion especial. Cada usuario es responsable del uso final, adaptacion, impresion o distribucion de sus materiales.
             </p>
             <button onClick={() => setLegalOpen(true)}>Ver legal</button>
           </div>
@@ -1336,7 +1336,7 @@ export function PictoStudio() {
                 <p className="print-attribution">
                   Proveedor de pictogramas: ARASAAC. Autor: Sergio Palao. Titular: Gobierno de Aragon. Origen:
                   https://arasaac.org. Licencia: Creative Commons BY-NC-SA. Documento generado con una herramienta no
-                  comercial creada desde www.amaretea.com para apoyar a docentes de educacion especial. El usuario es
+                  comercial creada desde amaretea.es para apoyar a docentes de educacion especial. El usuario es
                   responsable del uso, adaptacion, impresion, revision de derechos y distribucion de este material.
                 </p>
               </div>
@@ -1650,7 +1650,7 @@ export function PictoStudio() {
           <div className="modal legal-modal">
             <h2 id="legal-title">Aviso legal y uso de imagenes</h2>
             <p>
-              Esta web ha sido creada desde <a href="https://www.amaretea.com" target="_blank" rel="noreferrer">www.amaretea.com</a> sin animo de comercializar pictogramas ni generar ingresos por su uso, con el fin de ayudar en el dia a dia de docentes de educacion especial.
+              Esta web ha sido creada desde <a href="https://amaretea.es/" target="_blank" rel="noreferrer">amaretea.es</a> sin animo de comercializar pictogramas ni generar ingresos por su uso, con el fin de ayudar en el dia a dia de docentes de educacion especial.
             </p>
             <p>
               ARASAAC se utiliza unicamente como proveedor publico de pictogramas cuando esa fuente esta activada. Sus

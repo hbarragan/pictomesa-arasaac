@@ -18,7 +18,7 @@ export async function GET(
   const response = await fetch(upstream, {
     headers: {
       Accept: request.headers.get("accept") ?? "*/*",
-      "User-Agent": "Amaretea/1.0 (+https://www.amaretea.com)",
+      "User-Agent": "Amaretea/1.0 (+https://amaretea.es/)",
     },
     next: { revalidate: 3600 },
   });
