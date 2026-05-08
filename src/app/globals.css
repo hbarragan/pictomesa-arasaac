@@ -340,6 +340,84 @@ button {
   justify-content: space-between;
 }
 
+.source-toggles {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.source-toggles label {
+  align-items: center;
+  background: #f2ede2;
+  border-radius: 8px;
+  color: #101827;
+  display: flex;
+  font-size: 13px;
+  font-weight: 850;
+  gap: 9px;
+  min-height: 38px;
+  padding: 0 11px;
+}
+
+.source-toggles input {
+  height: 17px;
+  width: 17px;
+}
+
+.local-library-box {
+  background: #f7f3ea;
+  border: 1px solid #e2dacd;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 12px;
+}
+
+.local-library-box strong,
+.local-results-summary {
+  color: #0f625f;
+  display: block;
+  font-size: 12px;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.local-library-box span {
+  color: #344054;
+  display: block;
+  font-family: "Geist Mono", "Geist Mono Fallback", ui-monospace, monospace;
+  font-size: 12px;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}
+
+.local-library-box p {
+  color: #5b6472;
+  font-size: 12px;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.local-library-actions {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.local-library-actions .command-button {
+  justify-content: center;
+}
+
+.local-results-summary {
+  margin-top: 12px;
+  text-transform: none;
+}
+
+.local-result {
+  border-color: #b9ded8;
+}
+
 .results-grid {
   display: grid;
   gap: 10px;
@@ -847,6 +925,10 @@ button {
 
   .print-only-board {
     display: grid;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    padding: 0;
   }
 
   .board-cell {
@@ -855,7 +937,10 @@ button {
   }
 
   .print-cell {
-    aspect-ratio: 1;
-    min-height: 28mm;
+    aspect-ratio: auto;
+    border: 1px solid #000000;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 0;
   }
 }

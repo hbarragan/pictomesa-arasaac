@@ -29,6 +29,7 @@ type Language = "es" | "en" | "fr" | "pt" | "ca" | "it" | "de";
 type SearchMode = "search" | "bestsearch" | "new";
 type LabelPosition = "bottom" | "top";
 type PrintOrientation = "portrait" | "landscape";
+type PictoSource = "arasaac" | "local";
 
 type ImageOptions = {
   color: boolean;
@@ -40,7 +41,10 @@ type ImageOptions = {
 type PictoCell = {
   id: string;
   label: string;
+  source?: PictoSource;
   pictoId?: number;
+  localPictoId?: string;
+  localSrc?: string;
   bg: string;
   options: ImageOptions;
   note?: string;
@@ -54,6 +58,7 @@ type Board = {
   gap: number;
   labelPosition: LabelPosition;
   fontSize: number;
+  printCellCm?: number;
   cells: PictoCell[];
 };
 
@@ -82,6 +87,17 @@ type PictoResult = {
   aacColor?: boolean;
   schematic?: boolean;
 };
+
+type LocalPicto = {
+  id: string;
+  name: string;
+  path: string;
+  src: string;
+};
+
+type DragPictoPayload =
+  | { source: "arasaac"; id: number; label: string; aac?: boolean; aacColor?: boolean }
+  | { source: "local"; id: string; label: string; src: string };
 
 type SkinKey = "white" | "black" | "assian" | "mulatto" | "aztec";
 type HairKey = "brown" | "blonde" | "red" | "black" | "gray" | "darkGray" | "darkBrown";
@@ -158,6 +174,7 @@ function makeBoard(title = "Tablero principal", rows = 4, cols = 5): Board {
     gap: 10,
     labelPosition: "bottom",
     fontSize: 18,
+    printCellCm: 5,
     cells: makeCells(rows * cols),
   };
 }
@@ -208,6 +225,19 @@ function pictogramUrl(id: number, options: ImageOptions) {
   return `/api/arasaac/pictograms/${id}?${params.toString()}`;
 }
 
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function labelFromFileName(name: string) {
+  return name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
+}
+
 function resizeCells(board: Board, rows: number, cols: number) {
   const total = rows * cols;
   const cells = board.cells.slice(0, total);
@@ -237,6 +267,10 @@ export function PictoStudio() {
   const [language, setLanguage] = useState<Language>("es");
   const [searchMode, setSearchMode] = useState<SearchMode>("search");
   const [results, setResults] = useState<PictoResult[]>([]);
+  const [useArasaac, setUseArasaac] = useState(true);
+  const [useLocalLibrary, setUseLocalLibrary] = useState(false);
+  const [localPath, setLocalPath] = useState("C:/pictogramas");
+  const [localPictos, setLocalPictos] = useState<LocalPicto[]>([]);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const [dragCellId, setDragCellId] = useState<string | null>(null);
@@ -249,6 +283,8 @@ export function PictoStudio() {
   const libraryRef = useRef<HTMLElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const localFolderInputRef = useRef<HTMLInputElement>(null);
+  const localFilesInputRef = useRef<HTMLInputElement>(null);
 
   const activeProject = useMemo(
     () => projects.find((project) => project.id === activeProjectId) ?? projects[0],
@@ -273,9 +309,22 @@ export function PictoStudio() {
   );
 
   const printableCells = useMemo(
-    () => activeBoard.cells.filter((cell) => Boolean(cell.pictoId)),
+    () => activeBoard.cells.filter((cell) => Boolean(cell.pictoId || cell.localSrc)),
     [activeBoard.cells],
   );
+
+  const localResults = useMemo(() => {
+    if (!useLocalLibrary) {
+      return [];
+    }
+
+    const normalized = query.trim().toLowerCase();
+    const matches = normalized
+      ? localPictos.filter((picto) => `${picto.name} ${picto.path}`.toLowerCase().includes(normalized))
+      : localPictos;
+
+    return matches.slice(0, 80);
+  }, [localPictos, query, useLocalLibrary]);
 
   const lastSaved = useMemo(
     () => new Date(activeProject.updatedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
@@ -340,6 +389,12 @@ export function PictoStudio() {
   };
 
   const runSearch = async (mode = searchMode) => {
+    if (!useArasaac) {
+      setResults([]);
+      setApiError("");
+      return;
+    }
+
     setLoading(true);
     setApiError("");
 
@@ -374,6 +429,65 @@ export function PictoStudio() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    localFolderInputRef.current?.setAttribute("webkitdirectory", "");
+    localFolderInputRef.current?.setAttribute("directory", "");
+  }, []);
+
+  const addLocalFiles = async (files: FileList | File[]) => {
+    const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
+
+    if (images.length === 0) {
+      return;
+    }
+
+    const pictos = await Promise.all(
+      images.map(async (file) => {
+        const relativePath = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name;
+
+        return {
+          id: uid("local"),
+          name: labelFromFileName(file.name),
+          path: relativePath.replaceAll("\\", "/"),
+          src: await fileToDataUrl(file),
+        };
+      }),
+    );
+
+    const firstPath = pictos[0]?.path;
+    if (firstPath?.includes("/")) {
+      setLocalPath(`C:/pictogramas/${firstPath.split("/").slice(0, -1).join("/")}`);
+    }
+
+    setUseLocalLibrary(true);
+    setLocalPictos((current) => [...pictos, ...current]);
+  };
+
+  const setCellFromDragPayload = (cellId: string, payload: DragPictoPayload) => {
+    if (payload.source === "local") {
+      updateCell(cellId, {
+        source: "local",
+        localPictoId: payload.id,
+        localSrc: payload.src,
+        pictoId: undefined,
+        label: payload.label,
+      });
+      return;
+    }
+
+    updateCell(cellId, {
+      source: "arasaac",
+      pictoId: payload.id,
+      localPictoId: undefined,
+      localSrc: undefined,
+      label: payload.label,
+      options: {
+        ...(activeBoard.cells.find((cell) => cell.id === cellId)?.options ?? defaultOptions),
+        color: payload.aacColor || payload.aac ? true : true,
+      },
+    });
+  };
+
   const addPictoToBoard = (result: PictoResult) => {
     const target =
       selectedCell ??
@@ -385,12 +499,41 @@ export function PictoStudio() {
     }
 
     updateCell(target.id, {
+      source: "arasaac",
       pictoId: result._id,
+      localPictoId: undefined,
+      localSrc: undefined,
       label: getKeywordLabel(result),
       options: {
         ...target.options,
         color: result.aacColor || result.aac ? true : target.options.color,
       },
+    });
+    setSelectedCellId(target.id);
+
+    if (window.matchMedia("(max-width: 860px)").matches) {
+      window.setTimeout(() => {
+        canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 80);
+    }
+  };
+
+  const addLocalPictoToBoard = (picto: LocalPicto) => {
+    const target =
+      selectedCell ??
+      activeBoard.cells.find((cell) => !cell.pictoId && !cell.localSrc && !cell.label) ??
+      activeBoard.cells[0];
+
+    if (!target) {
+      return;
+    }
+
+    updateCell(target.id, {
+      source: "local",
+      localPictoId: picto.id,
+      localSrc: picto.src,
+      pictoId: undefined,
+      label: picto.name,
     });
     setSelectedCellId(target.id);
 
@@ -604,10 +747,72 @@ export function PictoStudio() {
             <aside className="library-panel" aria-label="Biblioteca de pictogramas" ref={libraryRef}>
               <div className="panel-heading">
                 <div>
-                  <p className="eyebrow">ARASAAC</p>
+                  <p className="eyebrow">ARASAAC y local</p>
                   <h2>Biblioteca viva</h2>
                 </div>
                 <Sparkles size={20} aria-hidden />
+              </div>
+
+              <div className="source-toggles" aria-label="Fuentes de pictogramas">
+                <label>
+                  <input type="checkbox" checked={useArasaac} onChange={(event) => setUseArasaac(event.target.checked)} />
+                  Biblioteca ARASAAC
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={useLocalLibrary}
+                    onChange={(event) => setUseLocalLibrary(event.target.checked)}
+                  />
+                  Biblioteca local
+                </label>
+              </div>
+
+              <div className="local-library-box">
+                <div>
+                  <strong>Ruta local sugerida</strong>
+                  <span>{localPath}</span>
+                </div>
+                <div className="local-library-actions">
+                  <button className="command-button secondary compact" onClick={() => localFolderInputRef.current?.click()}>
+                    <FileUp size={16} />
+                    Carpeta
+                  </button>
+                  <button className="command-button secondary compact" onClick={() => localFilesInputRef.current?.click()}>
+                    <Plus size={16} />
+                    Imagenes
+                  </button>
+                </div>
+                <input
+                  ref={localFolderInputRef}
+                  className="sr-only"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(event) => {
+                    if (event.target.files) {
+                      void addLocalFiles(event.target.files);
+                    }
+                    event.target.value = "";
+                  }}
+                />
+                <input
+                  ref={localFilesInputRef}
+                  className="sr-only"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={(event) => {
+                    if (event.target.files) {
+                      void addLocalFiles(event.target.files);
+                    }
+                    event.target.value = "";
+                  }}
+                />
+                <p>
+                  Por seguridad del navegador, la web no puede abrir C:/pictogramas sola: selecciona esa carpeta y se
+                  leeran todas las imagenes, incluidas subcarpetas.
+                </p>
               </div>
 
               <div className="search-box">
@@ -657,12 +862,56 @@ export function PictoStudio() {
               {apiError ? <p className="error-text">{apiError}</p> : null}
               {loading ? <p className="muted">Consultando ARASAAC...</p> : null}
 
+              {useLocalLibrary ? (
+                <div className="local-results-summary">
+                  {localPictos.length} imagenes locales cargadas
+                  {localResults.length !== localPictos.length ? `, ${localResults.length} coinciden` : ""}
+                </div>
+              ) : null}
+
               <div className="results-grid">
+                {localResults.map((picto) => (
+                  <button
+                    key={picto.id}
+                    className="result-tile local-result"
+                    onClick={() => addLocalPictoToBoard(picto)}
+                    draggable
+                    onDragStart={(event) => {
+                      setDragCellId(null);
+                      event.dataTransfer.setData(
+                        "application/json",
+                        JSON.stringify({ source: "local", id: picto.id, label: picto.name, src: picto.src }),
+                      );
+                    }}
+                  >
+                    <img src={picto.src} alt={picto.name} loading="lazy" />
+                    <span>{picto.name}</span>
+                    <small>{picto.path}</small>
+                  </button>
+                ))}
                 {results.map((result) => {
                   const label = getKeywordLabel(result);
 
                   return (
-                    <button key={result._id} className="result-tile" onClick={() => addPictoToBoard(result)}>
+                    <button
+                      key={result._id}
+                      className="result-tile"
+                      onClick={() => addPictoToBoard(result)}
+                      draggable
+                      onDragStart={(event) => {
+                        setDragCellId(null);
+                        event.dataTransfer.setData(
+                          "application/json",
+                          JSON.stringify({
+                            source: "arasaac",
+                            id: result._id,
+                            label,
+                            aac: result.aac,
+                            aacColor: result.aacColor,
+                          }),
+                        );
+                      }}
+                    >
                       <img src={pictogramUrl(result._id, defaultOptions)} alt={label} loading="lazy" />
                       <span>{label}</span>
                       <small>{getAllWords(result)}</small>
@@ -749,7 +998,19 @@ export function PictoStudio() {
                         draggable
                         onDragStart={() => setDragCellId(cell.id)}
                         onDragOver={(event) => event.preventDefault()}
-                        onDrop={() => {
+                        onDrop={(event) => {
+                          const payload = event.dataTransfer.getData("application/json");
+                          if (payload) {
+                            try {
+                              setCellFromDragPayload(cell.id, JSON.parse(payload) as DragPictoPayload);
+                              setSelectedCellId(cell.id);
+                              setDragCellId(null);
+                              return;
+                            } catch {
+                              setDragCellId(null);
+                            }
+                          }
+
                           if (dragCellId) {
                             swapCells(dragCellId, cell.id);
                           }
@@ -759,7 +1020,9 @@ export function PictoStudio() {
                           <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
                         ) : null}
                         <div className="picto-image-wrap">
-                          {cell.pictoId ? (
+                          {cell.localSrc ? (
+                            <img src={cell.localSrc} alt={cell.label} draggable={false} />
+                          ) : cell.pictoId ? (
                             <img src={pictogramUrl(cell.pictoId, cell.options)} alt={cell.label} draggable={false} />
                           ) : (
                             <Plus size={26} aria-hidden />
@@ -776,7 +1039,7 @@ export function PictoStudio() {
                 <div
                   className="communication-board print-only-board"
                   style={{
-                    gridTemplateColumns: `repeat(${Math.min(activeBoard.cols, Math.max(printableCells.length, 1))}, minmax(0, 1fr))`,
+                    gridTemplateColumns: `repeat(${Math.min(activeBoard.cols, Math.max(printableCells.length, 1))}, ${activeBoard.printCellCm ?? 5}cm)`,
                     gap: activeBoard.gap,
                   }}
                 >
@@ -784,13 +1047,21 @@ export function PictoStudio() {
                     <div
                       key={`print-${cell.id}`}
                       className={`board-cell print-cell ${cell.bg === "#111827" ? "dark-cell" : ""}`}
-                      style={{ backgroundColor: cell.bg }}
+                      style={{
+                        backgroundColor: cell.bg,
+                        height: `${activeBoard.printCellCm ?? 5}cm`,
+                        width: `${activeBoard.printCellCm ?? 5}cm`,
+                      }}
                     >
                       {activeBoard.labelPosition === "top" ? (
                         <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
                       ) : null}
                       <div className="picto-image-wrap">
-                        <img src={pictogramUrl(cell.pictoId!, cell.options)} alt={cell.label} draggable={false} />
+                        <img
+                          src={cell.localSrc ?? pictogramUrl(cell.pictoId!, cell.options)}
+                          alt={cell.label}
+                          draggable={false}
+                        />
                       </div>
                       {activeBoard.labelPosition === "bottom" ? (
                         <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
@@ -898,6 +1169,20 @@ export function PictoStudio() {
                 </select>
               </div>
 
+              <div className="control-group">
+                <label>Tamano picto print</label>
+                <input
+                  type="number"
+                  min={2}
+                  max={18}
+                  step={0.5}
+                  value={activeBoard.printCellCm ?? 5}
+                  onChange={(event) =>
+                    updateActiveBoard((board) => ({ ...board, printCellCm: Number(event.target.value) || 5 }))
+                  }
+                />
+              </div>
+
               <button className="command-button print-wide" onClick={printBoard}>
                 <Printer size={18} />
                 Imprimir tablero activo
@@ -993,7 +1278,10 @@ export function PictoStudio() {
                       className="command-button"
                       onClick={() =>
                         updateCell(selectedCell.id, {
+                          source: undefined,
                           pictoId: undefined,
+                          localPictoId: undefined,
+                          localSrc: undefined,
                           label: "",
                           note: "",
                         })
@@ -1017,7 +1305,7 @@ export function PictoStudio() {
                     <button
                       className="command-button"
                       onClick={() => {
-                        const empty = activeBoard.cells.find((cell) => !cell.pictoId && !cell.label);
+                        const empty = activeBoard.cells.find((cell) => !cell.pictoId && !cell.localSrc && !cell.label);
                         if (empty) {
                           updateCell(empty.id, { ...selectedCell, id: empty.id });
                           setSelectedCellId(empty.id);
