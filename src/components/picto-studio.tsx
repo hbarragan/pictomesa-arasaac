@@ -296,6 +296,24 @@ function downloadBlob(content: string, filename: string, type: string) {
   URL.revokeObjectURL(url);
 }
 
+function cloneImportedProject(imported: Project, nameSuffix = "importado"): Project {
+  const boardIdMap = new Map(imported.boards.map((board) => [board.id, uid("board")]));
+  const boards = imported.boards.map((board) => ({
+    ...board,
+    id: boardIdMap.get(board.id) ?? uid("board"),
+    cells: board.cells.map((cell) => ({ ...cell, id: uid("cell") })),
+  }));
+
+  return {
+    ...imported,
+    id: uid("project"),
+    name: `${imported.name} ${nameSuffix}`,
+    updatedAt: new Date().toISOString(),
+    activeBoardId: boardIdMap.get(imported.activeBoardId) ?? boards[0]?.id ?? uid("board"),
+    boards,
+  };
+}
+
 export function PictoStudio() {
   const [projects, setProjects] = useState<Project[]>(() => [makeInitialProject()]);
   const [activeProjectId, setActiveProjectId] = useState(projects[0].id);
@@ -351,10 +369,20 @@ export function PictoStudio() {
     [activeBoard.cells, effectiveSelectedCellId],
   );
 
-  const printableCells = useMemo(
-    () => activeBoard.cells.filter((cell) => Boolean(cell.pictoId || cell.localSrc)),
-    [activeBoard.cells],
-  );
+  const printableRows = useMemo(() => {
+    const rows: PictoCell[][] = [];
+
+    for (let rowIndex = 0; rowIndex < activeBoard.rows; rowIndex += 1) {
+      const start = rowIndex * activeBoard.cols;
+      const row = activeBoard.cells.slice(start, start + activeBoard.cols);
+
+      if (row.some((cell) => Boolean(cell.pictoId || cell.localSrc))) {
+        rows.push(row);
+      }
+    }
+
+    return rows;
+  }, [activeBoard.cells, activeBoard.cols, activeBoard.rows]);
 
   const localResults = useMemo(() => {
     if (!useLocalLibrary) {
@@ -768,6 +796,21 @@ export function PictoStudio() {
     );
   };
 
+  const exportAllProjects = () => {
+    downloadBlob(
+      JSON.stringify(
+        {
+          exportedAt: new Date().toISOString(),
+          projects,
+        },
+        null,
+        2,
+      ),
+      `copia-proyectos-amaretea-${new Date().toISOString().slice(0, 10)}.json`,
+      "application/json",
+    );
+  };
+
   const importProject = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
@@ -776,16 +819,19 @@ export function PictoStudio() {
     }
 
     const text = await file.text();
-    const imported = JSON.parse(text) as Project;
-    const project = {
-      ...imported,
-      id: uid("project"),
-      name: `${imported.name} importado`,
-      updatedAt: new Date().toISOString(),
-    };
+    const imported = JSON.parse(text) as Project | { projects?: Project[] };
+    const importedProjects = "projects" in imported && Array.isArray(imported.projects) ? imported.projects : [imported as Project];
+    const projectsToAdd = importedProjects
+      .filter((project) => Array.isArray(project.boards) && project.boards.length > 0)
+      .map((project) => cloneImportedProject(project, importedProjects.length > 1 ? "copia" : "importado"));
 
-    setProjects((current) => [project, ...current]);
-    setActiveProjectId(project.id);
+    if (projectsToAdd.length === 0) {
+      event.target.value = "";
+      return;
+    }
+
+    setProjects((current) => [...projectsToAdd, ...current]);
+    setActiveProjectId(projectsToAdd[0].id);
     event.target.value = "";
   };
 
@@ -858,7 +904,15 @@ export function PictoStudio() {
               </button>
               <button className="command-button" onClick={exportProject}>
                 <FileDown size={18} />
-                Proyecto
+                Exportar proyecto
+              </button>
+              <button
+                className="command-button secondary"
+                onClick={exportAllProjects}
+                title="Descargar una copia de todos los proyectos guardados en este navegador"
+              >
+                <Save size={18} />
+                Copia
               </button>
               <button className="command-button" onClick={() => fileInputRef.current?.click()}>
                 <FileUp size={18} />
@@ -873,7 +927,7 @@ export function PictoStudio() {
             <p>
               Los proyectos se guardan solo en la cache/localStorage de este navegador. Si borras la cache o los datos
               del sitio, perderas los proyectos. Esta herramienta no guarda datos en servidor y solo consulta fuentes
-              externas cuando las activas.
+              externas cuando las activas. Recomendamos exportar una copia cada cierto tiempo.
             </p>
             <button onClick={() => setNoticeOpen(true)}>Ver aviso</button>
           </div>
@@ -1228,35 +1282,55 @@ export function PictoStudio() {
                 <div
                   className="communication-board print-only-board"
                   style={{
-                    gridTemplateColumns: `repeat(${Math.min(activeBoard.cols, Math.max(printableCells.length, 1))}, ${activeBoard.printCellCm ?? 5}cm)`,
+                    gridTemplateColumns: `repeat(${activeBoard.cols}, ${activeBoard.printCellCm ?? 5}cm)`,
                     gap: activeBoard.gap,
                   }}
                 >
-                  {printableCells.map((cell) => (
-                    <div
-                      key={`print-${cell.id}`}
-                      className={`board-cell print-cell ${cell.bg === "#111827" ? "dark-cell" : ""}`}
-                      style={{
-                        backgroundColor: cell.bg,
-                        height: `${activeBoard.printCellCm ?? 5}cm`,
-                        width: `${activeBoard.printCellCm ?? 5}cm`,
-                      }}
-                    >
-                      {activeBoard.labelPosition === "top" ? (
-                        <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
-                      ) : null}
-                      <div className="picto-image-wrap">
-                        <img
-                          src={cell.localSrc ?? pictogramUrl(cell.pictoId!, cell.options)}
-                          alt={cell.label}
-                          draggable={false}
-                        />
-                      </div>
-                      {activeBoard.labelPosition === "bottom" ? (
-                        <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
-                      ) : null}
-                    </div>
-                  ))}
+                  {printableRows.flatMap((row, rowIndex) =>
+                    row.map((cell, cellIndex) => {
+                      const hasImage = Boolean(cell.pictoId || cell.localSrc);
+
+                      if (!hasImage) {
+                        return (
+                          <div
+                            key={`print-empty-${rowIndex}-${cellIndex}-${cell.id}`}
+                            className="print-empty-slot"
+                            style={{
+                              height: `${activeBoard.printCellCm ?? 5}cm`,
+                              width: `${activeBoard.printCellCm ?? 5}cm`,
+                            }}
+                            aria-hidden
+                          />
+                        );
+                      }
+
+                      return (
+                        <div
+                          key={`print-${cell.id}`}
+                          className={`board-cell print-cell ${cell.bg === "#111827" ? "dark-cell" : ""}`}
+                          style={{
+                            backgroundColor: cell.bg,
+                            height: `${activeBoard.printCellCm ?? 5}cm`,
+                            width: `${activeBoard.printCellCm ?? 5}cm`,
+                          }}
+                        >
+                          {activeBoard.labelPosition === "top" ? (
+                            <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
+                          ) : null}
+                          <div className="picto-image-wrap">
+                            <img
+                              src={cell.localSrc ?? pictogramUrl(cell.pictoId!, cell.options)}
+                              alt={cell.label}
+                              draggable={false}
+                            />
+                          </div>
+                          {activeBoard.labelPosition === "bottom" ? (
+                            <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
+                          ) : null}
+                        </div>
+                      );
+                    }),
+                  )}
                 </div>
 
                 <p className="print-attribution">
@@ -1322,9 +1396,10 @@ export function PictoStudio() {
               <div className="control-group">
                 <label>Separacion</label>
                 <input
-                  type="range"
+                  type="number"
                   min={0}
                   max={22}
+                  step={1}
                   value={activeBoard.gap}
                   onChange={(event) => updateActiveBoard((board) => ({ ...board, gap: Number(event.target.value) }))}
                 />
@@ -1333,9 +1408,10 @@ export function PictoStudio() {
               <div className="control-group">
                 <label>Tamano texto</label>
                 <input
-                  type="range"
+                  type="number"
                   min={12}
                   max={30}
+                  step={1}
                   value={activeBoard.fontSize}
                   onChange={(event) =>
                     updateActiveBoard((board) => ({ ...board, fontSize: Number(event.target.value) }))
@@ -1558,8 +1634,9 @@ export function PictoStudio() {
               perderan.
             </p>
             <p>
-              Para conservarlos fuera del navegador usa <strong>Proyecto</strong> y descarga un archivo JSON que despues
-              puedes importar.
+              Para conservarlos fuera del navegador usa <strong>Exportar proyecto</strong> o <strong>Copia</strong> y
+              descarga un archivo JSON que despues puedes importar. Recomendamos hacer una copia cada cierto tiempo,
+              sobre todo antes de limpiar la cache, cambiar de equipo o hacer cambios grandes.
             </p>
             <button className="command-button primary" onClick={() => setNoticeOpen(false)}>
               Entendido

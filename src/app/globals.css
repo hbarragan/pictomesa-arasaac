@@ -621,6 +621,10 @@ button {
   display: none;
 }
 
+.print-empty-slot {
+  display: block;
+}
+
 .board-cell {
   align-items: center;
   aspect-ratio: 1;
@@ -1060,5 +1064,9 @@ button {
     border-radius: 0;
     box-shadow: none;
     min-height: 0;
+  }
+
+  .print-empty-slot {
+    break-inside: avoid;
   }
 }
