@@ -399,6 +399,15 @@ button {
   margin: 0;
 }
 
+.local-library-box .local-library-message {
+  background: #ffffff;
+  border: 1px solid #ded8cc;
+  border-radius: 8px;
+  color: #344054;
+  font-weight: 750;
+  padding: 8px;
+}
+
 .local-library-actions {
   display: grid;
   gap: 8px;
@@ -412,6 +421,17 @@ button {
 .local-results-summary {
   margin-top: 12px;
   text-transform: none;
+}
+
+.empty-library-note {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #7c2d12;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 12px;
+  padding: 10px;
 }
 
 .local-result {

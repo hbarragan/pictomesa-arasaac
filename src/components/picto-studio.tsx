@@ -104,6 +104,7 @@ type HairKey = "brown" | "blonde" | "red" | "black" | "gray" | "darkGray" | "dar
 
 const CACHE_KEY = "pictomesa-projects-v1";
 const ACTIVE_KEY = "pictomesa-active-project-v1";
+const LOCAL_LIBRARY_KEY = "pictomesa-local-library-v1";
 
 const languages: { code: Language; label: string }[] = [
   { code: "es", label: "ES" },
@@ -238,6 +239,10 @@ function labelFromFileName(name: string) {
   return name.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ").trim();
 }
 
+function isImageFile(file: File) {
+  return file.type.startsWith("image/") || /\.(avif|bmp|gif|jpe?g|png|svg|webp)$/i.test(file.name);
+}
+
 function resizeCells(board: Board, rows: number, cols: number) {
   const total = rows * cols;
   const cells = board.cells.slice(0, total);
@@ -268,9 +273,12 @@ export function PictoStudio() {
   const [searchMode, setSearchMode] = useState<SearchMode>("search");
   const [results, setResults] = useState<PictoResult[]>([]);
   const [useArasaac, setUseArasaac] = useState(true);
-  const [useLocalLibrary, setUseLocalLibrary] = useState(false);
-  const [localPath, setLocalPath] = useState("C:/pictogramas");
+  const [useLocalLibrary, setUseLocalLibrary] = useState(true);
+  const [localPath, setLocalPath] = useState("C:/pictrogramas");
   const [localPictos, setLocalPictos] = useState<LocalPicto[]>([]);
+  const [localLibraryMessage, setLocalLibraryMessage] = useState(
+    "Pulsa Carpeta y selecciona C:/pictrogramas para cargar tus imagenes.",
+  );
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const [dragCellId, setDragCellId] = useState<string | null>(null);
@@ -335,6 +343,7 @@ export function PictoStudio() {
     queueMicrotask(() => {
       const cached = localStorage.getItem(CACHE_KEY);
       const activeId = localStorage.getItem(ACTIVE_KEY);
+      const cachedLocal = localStorage.getItem(LOCAL_LIBRARY_KEY);
 
       if (cached) {
         try {
@@ -353,6 +362,24 @@ export function PictoStudio() {
         setNoticeOpen(true);
       }
 
+      if (cachedLocal) {
+        try {
+          const parsed = JSON.parse(cachedLocal) as { path?: string; pictos?: LocalPicto[] };
+
+          if (parsed.path) {
+            setLocalPath(parsed.path);
+          }
+
+          if (Array.isArray(parsed.pictos) && parsed.pictos.length > 0) {
+            setLocalPictos(parsed.pictos);
+            setUseLocalLibrary(true);
+            setLocalLibraryMessage(`${parsed.pictos.length} imagenes locales recuperadas de la cache del navegador.`);
+          }
+        } catch {
+          setLocalLibraryMessage("No pude recuperar la biblioteca local guardada. Selecciona la carpeta otra vez.");
+        }
+      }
+
       setHydrated(true);
     });
   }, []);
@@ -365,6 +392,22 @@ export function PictoStudio() {
     localStorage.setItem(CACHE_KEY, JSON.stringify(projects));
     localStorage.setItem(ACTIVE_KEY, activeProjectId);
   }, [activeProjectId, hydrated, projects]);
+
+  useEffect(() => {
+    if (!hydrated) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(LOCAL_LIBRARY_KEY, JSON.stringify({ path: localPath, pictos: localPictos }));
+    } catch {
+      queueMicrotask(() => {
+        setLocalLibraryMessage(
+          "Las imagenes locales son demasiado grandes para guardarlas en cache. Seguiran disponibles hasta refrescar.",
+        );
+      });
+    }
+  }, [hydrated, localPath, localPictos]);
 
   const updateActiveProject = (updater: (project: Project) => Project) => {
     setProjects((current) =>
@@ -435,9 +478,10 @@ export function PictoStudio() {
   }, []);
 
   const addLocalFiles = async (files: FileList | File[]) => {
-    const images = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    const images = Array.from(files).filter(isImageFile);
 
     if (images.length === 0) {
+      setLocalLibraryMessage("No encontre imagenes en la seleccion. Revisa que sean PNG, JPG, SVG, WEBP, GIF o BMP.");
       return;
     }
 
@@ -456,11 +500,68 @@ export function PictoStudio() {
 
     const firstPath = pictos[0]?.path;
     if (firstPath?.includes("/")) {
-      setLocalPath(`C:/pictogramas/${firstPath.split("/").slice(0, -1).join("/")}`);
+      setLocalPath(`C:/pictrogramas/${firstPath.split("/").slice(0, -1).join("/")}`);
     }
 
     setUseLocalLibrary(true);
     setLocalPictos((current) => [...pictos, ...current]);
+    setLocalLibraryMessage(`${pictos.length} imagenes locales cargadas. Ya puedes buscarlas por nombre o subcarpeta.`);
+  };
+
+  const readDirectoryHandle = async (directoryHandle: {
+    name: string;
+    values: () => AsyncIterable<unknown>;
+  }) => {
+    const files: File[] = [];
+
+    const walk = async (handle: { name: string; values: () => AsyncIterable<unknown> }, prefix = "") => {
+      for await (const entry of handle.values()) {
+        const item = entry as {
+          kind?: string;
+          name: string;
+          getFile?: () => Promise<File>;
+          values?: () => AsyncIterable<unknown>;
+        };
+
+        if (item.kind === "file" && item.getFile) {
+          const file = await item.getFile();
+          Object.defineProperty(file, "webkitRelativePath", {
+            configurable: true,
+            value: `${prefix}${item.name}`,
+          });
+          files.push(file);
+        }
+
+        if (item.kind === "directory" && item.values) {
+          await walk(item as { name: string; values: () => AsyncIterable<unknown> }, `${prefix}${item.name}/`);
+        }
+      }
+    };
+
+    await walk(directoryHandle);
+    setLocalPath(`C:/${directoryHandle.name}`);
+    await addLocalFiles(files);
+  };
+
+  const selectLocalFolder = async () => {
+    const browserWindow = window as Window & {
+      showDirectoryPicker?: () => Promise<{ name: string; values: () => AsyncIterable<unknown> }>;
+    };
+
+    if (browserWindow.showDirectoryPicker) {
+      try {
+        const handle = await browserWindow.showDirectoryPicker();
+        await readDirectoryHandle(handle);
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+        setLocalLibraryMessage("No pude abrir la carpeta con el selector moderno. Prueba con el selector clasico.");
+      }
+    }
+
+    localFolderInputRef.current?.click();
   };
 
   const setCellFromDragPayload = (cellId: string, payload: DragPictoPayload) => {
@@ -774,7 +875,7 @@ export function PictoStudio() {
                   <span>{localPath}</span>
                 </div>
                 <div className="local-library-actions">
-                  <button className="command-button secondary compact" onClick={() => localFolderInputRef.current?.click()}>
+                  <button className="command-button secondary compact" onClick={() => void selectLocalFolder()}>
                     <FileUp size={16} />
                     Carpeta
                   </button>
@@ -810,9 +911,11 @@ export function PictoStudio() {
                   }}
                 />
                 <p>
-                  Por seguridad del navegador, la web no puede abrir C:/pictogramas sola: selecciona esa carpeta y se
-                  leeran todas las imagenes, incluidas subcarpetas.
+                  Por seguridad del navegador, la web no puede abrir una ruta sola aunque exista. Selecciona
+                  C:/pictrogramas o C:/pictogramas con el boton Carpeta y se leeran las imagenes, incluidas
+                  subcarpetas.
                 </p>
+                <p className="local-library-message">{localLibraryMessage}</p>
               </div>
 
               <div className="search-box">
@@ -866,6 +969,13 @@ export function PictoStudio() {
                 <div className="local-results-summary">
                   {localPictos.length} imagenes locales cargadas
                   {localResults.length !== localPictos.length ? `, ${localResults.length} coinciden` : ""}
+                </div>
+              ) : null}
+
+              {useLocalLibrary && localPictos.length === 0 ? (
+                <div className="empty-library-note">
+                  La biblioteca local esta activa pero aun no hay imagenes cargadas. Pulsa <strong>Carpeta</strong> y
+                  selecciona la carpeta que has creado en C:.
                 </div>
               ) : null}
 
