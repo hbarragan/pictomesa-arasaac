@@ -105,6 +105,7 @@ type HairKey = "brown" | "blonde" | "red" | "black" | "gray" | "darkGray" | "dar
 const CACHE_KEY = "pictomesa-projects-v1";
 const ACTIVE_KEY = "pictomesa-active-project-v1";
 const LOCAL_LIBRARY_KEY = "pictomesa-local-library-v1";
+const INITIAL_UPDATED_AT = "1970-01-01T00:00:00.000Z";
 
 const languages: { code: Language; label: string }[] = [
   { code: "es", label: "ES" },
@@ -166,6 +167,15 @@ function makeCells(count: number): PictoCell[] {
   }));
 }
 
+function makeInitialCells(count: number): PictoCell[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `cell-initial-${index}`,
+    label: "",
+    bg: "#ffffff",
+    options: { ...defaultOptions },
+  }));
+}
+
 function makeBoard(title = "Tablero principal", rows = 4, cols = 5): Board {
   return {
     id: uid("board"),
@@ -177,6 +187,28 @@ function makeBoard(title = "Tablero principal", rows = 4, cols = 5): Board {
     fontSize: 18,
     printCellCm: 5,
     cells: makeCells(rows * cols),
+  };
+}
+
+function makeInitialProject(): Project {
+  return {
+    id: "project-initial",
+    name: "Mi tablero Amaretea",
+    updatedAt: INITIAL_UPDATED_AT,
+    activeBoardId: "board-initial",
+    boards: [
+      {
+        id: "board-initial",
+        title: "Tablero principal",
+        rows: 4,
+        cols: 5,
+        gap: 10,
+        labelPosition: "bottom",
+        fontSize: 18,
+        printCellCm: 5,
+        cells: makeInitialCells(20),
+      },
+    ],
   };
 }
 
@@ -265,7 +297,7 @@ function downloadBlob(content: string, filename: string, type: string) {
 }
 
 export function PictoStudio() {
-  const [projects, setProjects] = useState<Project[]>([makeProject()]);
+  const [projects, setProjects] = useState<Project[]>(() => [makeInitialProject()]);
   const [activeProjectId, setActiveProjectId] = useState(projects[0].id);
   const [selectedCellId, setSelectedCellId] = useState<string | null>(null);
   const [query, setQuery] = useState("comer");
@@ -337,10 +369,13 @@ export function PictoStudio() {
     return matches.slice(0, 80);
   }, [localPictos, query, useLocalLibrary]);
 
-  const lastSaved = useMemo(
-    () => new Date(activeProject.updatedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
-    [activeProject.updatedAt],
-  );
+  const lastSaved = useMemo(() => {
+    if (!hydrated || activeProject.updatedAt === INITIAL_UPDATED_AT) {
+      return "sin cambios";
+    }
+
+    return new Date(activeProject.updatedAt).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+  }, [activeProject.updatedAt, hydrated]);
 
   useEffect(() => {
     queueMicrotask(() => {
