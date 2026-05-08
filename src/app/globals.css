@@ -255,6 +255,43 @@ button {
   padding: 0 12px;
 }
 
+.amaretea-notice {
+  align-items: center;
+  background: #fffdf7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #344054;
+  display: flex;
+  gap: 12px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+}
+
+.amaretea-notice p {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.amaretea-notice a {
+  color: #0f625f;
+  font-weight: 850;
+  text-decoration: underline;
+}
+
+.amaretea-notice button,
+.collapse-button {
+  background: #edf7f4;
+  border: 1px solid #c8e3dd;
+  border-radius: 8px;
+  color: #0f625f;
+  font-size: 12px;
+  font-weight: 850;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
 .mobile-jumpbar {
   display: none;
 }
@@ -279,10 +316,20 @@ button {
   margin-bottom: 16px;
 }
 
+.panel-heading-actions {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
 .panel-heading h2 {
   font-size: 19px;
   font-weight: 850;
   margin: 0;
+}
+
+.collapsible-content.collapsed {
+  display: none;
 }
 
 .search-box {
@@ -790,6 +837,11 @@ button {
 }
 
 @media (max-width: 860px) {
+  .workspace {
+    display: flex;
+    flex-direction: column;
+  }
+
   .studio-shell {
     grid-template-columns: 1fr;
   }
@@ -809,9 +861,30 @@ button {
 
   .topbar,
   .cache-warning,
+  .amaretea-notice,
   .topbar-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .topbar {
+    order: 1;
+  }
+
+  .mobile-jumpbar {
+    order: 2;
+  }
+
+  .studio-grid {
+    order: 3;
+  }
+
+  .cache-warning {
+    order: 4;
+  }
+
+  .amaretea-notice {
+    order: 5;
   }
 
   .studio-grid {
@@ -826,7 +899,7 @@ button {
     box-shadow: 0 12px 40px #10182733;
     display: grid;
     gap: 6px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     margin: 10px 0 14px;
     padding: 6px;
     position: sticky;
@@ -842,6 +915,12 @@ button {
     font-weight: 850;
     min-height: 38px;
     padding: 0 8px;
+  }
+
+  .collapse-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .canvas-zone {
@@ -928,6 +1007,7 @@ button {
   .studio-rail,
   .topbar,
   .cache-warning,
+  .amaretea-notice,
   .mobile-jumpbar,
   .library-panel,
   .inspector-panel,

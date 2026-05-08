@@ -285,6 +285,8 @@ export function PictoStudio() {
   const [dragCellId, setDragCellId] = useState<string | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
+  const [libraryCollapsed, setLibraryCollapsed] = useState(false);
+  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [printOrientation, setPrintOrientation] = useState<PrintOrientation>("landscape");
   const boardRef = useRef<HTMLDivElement>(null);
@@ -620,6 +622,7 @@ export function PictoStudio() {
     setSelectedCellId(target.id);
 
     if (window.matchMedia("(max-width: 860px)").matches) {
+      setLibraryCollapsed(true);
       window.setTimeout(() => {
         canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 80);
@@ -646,6 +649,7 @@ export function PictoStudio() {
     setSelectedCellId(target.id);
 
     if (window.matchMedia("(max-width: 860px)").matches) {
+      setLibraryCollapsed(true);
       window.setTimeout(() => {
         canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 80);
@@ -839,12 +843,33 @@ export function PictoStudio() {
             <button onClick={() => setNoticeOpen(true)}>Ver aviso</button>
           </div>
 
+          <div className="amaretea-notice">
+            <Info size={18} />
+            <p>
+              Esta web ha sido creada desde <a href="https://www.amaretea.com" target="_blank" rel="noreferrer">www.amaretea.com</a> para ayudar en el dia a dia de docentes de educacion especial. Amaretea no se responsabiliza del uso final, adaptacion, impresion o distribucion de los materiales generados por cada usuario.
+            </p>
+            <button onClick={() => setLegalOpen(true)}>Ver legal</button>
+          </div>
+
           <nav className="mobile-jumpbar" aria-label="Navegacion movil">
             <button onClick={() => canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
               Tablero
             </button>
-            <button onClick={() => libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            <button
+              onClick={() => {
+                setLibraryCollapsed(false);
+                libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
               Buscar pictos
+            </button>
+            <button
+              onClick={() => {
+                setLibraryCollapsed((current) => !current);
+                libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              {libraryCollapsed ? "Abrir" : "Plegar"}
             </button>
             <button onClick={() => inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
               Ajustes
@@ -858,9 +883,19 @@ export function PictoStudio() {
                   <p className="eyebrow">ARASAAC y local</p>
                   <h2>Biblioteca viva</h2>
                 </div>
-                <Sparkles size={20} aria-hidden />
+                <div className="panel-heading-actions">
+                  <button
+                    className="collapse-button"
+                    onClick={() => setLibraryCollapsed((current) => !current)}
+                    aria-expanded={!libraryCollapsed}
+                  >
+                    {libraryCollapsed ? "Mostrar" : "Minimizar"}
+                  </button>
+                  <Sparkles size={20} aria-hidden />
+                </div>
               </div>
 
+              <div className={libraryCollapsed ? "collapsible-content collapsed" : "collapsible-content"}>
               <div className="source-toggles" aria-label="Fuentes de pictogramas">
                 <label>
                   <input type="checkbox" checked={useArasaac} onChange={(event) => setUseArasaac(event.target.checked)} />
@@ -1037,6 +1072,7 @@ export function PictoStudio() {
                   );
                 })}
               </div>
+              </div>
             </aside>
 
             <section className="canvas-zone" ref={canvasRef}>
@@ -1190,7 +1226,9 @@ export function PictoStudio() {
 
                 <p className="print-attribution">
                   Pictogramas: Sergio Palao / Gobierno de Aragon. Origen: ARASAAC (https://arasaac.org). Licencia:
-                  Creative Commons BY-NC-SA.
+                  Creative Commons BY-NC-SA. Documento generado con una herramienta creada desde www.amaretea.com para
+                  apoyar a docentes de educacion especial. El usuario es responsable del uso, adaptacion, impresion,
+                  revision de derechos y distribucion de este material.
                 </p>
               </div>
             </section>
@@ -1201,9 +1239,19 @@ export function PictoStudio() {
                   <p className="eyebrow">Inspector</p>
                   <h2>Tablero y celda</h2>
                 </div>
-                <Save size={20} aria-hidden />
+                <div className="panel-heading-actions">
+                  <button
+                    className="collapse-button"
+                    onClick={() => setInspectorCollapsed((current) => !current)}
+                    aria-expanded={!inspectorCollapsed}
+                  >
+                    {inspectorCollapsed ? "Mostrar" : "Minimizar"}
+                  </button>
+                  <Save size={20} aria-hidden />
+                </div>
               </div>
 
+              <div className={inspectorCollapsed ? "collapsible-content collapsed" : "collapsible-content"}>
               <div className="control-group">
                 <label>
                   <Rows3 size={16} />
@@ -1459,6 +1507,7 @@ export function PictoStudio() {
                 <ArrowDownToLine size={17} />
                 Guardado local a las {lastSaved}
               </div>
+              </div>
             </aside>
           </div>
         </section>
@@ -1496,6 +1545,17 @@ export function PictoStudio() {
             <p>
               La app usa la API publica de ARASAAC en tiempo real. No almacena pictogramas ni proyectos en servidor; el
               guardado de proyectos es local en el navegador.
+            </p>
+            <p>
+              Esta web ha sido creada desde www.amaretea.com con el fin de ayudar en el dia a dia de docentes de
+              educacion especial. Amaretea no se responsabiliza del uso concreto que haga cada usuario, de la idoneidad
+              pedagogica o clinica de los tableros, de la exactitud de pictogramas seleccionados, ni de la impresion,
+              modificacion, redistribucion o publicacion de los materiales generados.
+            </p>
+            <p>
+              Antes de compartir o imprimir materiales, revisa que tienes derecho a usar las imagenes locales que hayas
+              cargado, que se conserva la atribucion ARASAAC cuando corresponda y que el uso respeta la licencia
+              aplicable y las normas de tu centro.
             </p>
             <div className="legal-links">
               <a href="https://arasaac.org/developers/api" target="_blank" rel="noreferrer">
