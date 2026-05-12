@@ -1,4 +1,4 @@
-import { ArrowUpRight, Brush, ClipboardCheck, Grid2X2, Library, Settings2 } from "lucide-react";
+import { ArrowUpRight, Brush, ClipboardCheck, Grid2X2, LayoutDashboard, Library, Settings2 } from "lucide-react";
 import Link from "next/link";
 
 const tools = [
@@ -8,6 +8,13 @@ const tools = [
     title: "Tableros de pictogramas",
     text: "Crea escenarios, tableros imprimibles, filas, columnas, pictos propios y proyectos organizados para el aula.",
     status: "Disponible",
+  },
+  {
+    href: "/herramientas/disenador",
+    icon: LayoutDashboard,
+    title: "Diseñador tipo Boardmaker",
+    text: "Lienzo libre con plantillas, objetos, simbolos, textos, formas, botones con voz y exportacion imprimible.",
+    status: "Nuevo",
   },
   {
     href: "/herramientas/creador-pictos",
@@ -42,6 +49,7 @@ export default function Home() {
         </Link>
         <div>
           <Link href="/herramientas/pictogramas">Pictogramas</Link>
+          <Link href="/herramientas/disenador">Diseñador</Link>
           <Link href="/herramientas/creador-pictos">Crear picto</Link>
           <Link href="/herramientas/evaluacion">Evaluacion</Link>
           <a href="https://amaretea.es/" target="_blank" rel="noreferrer">

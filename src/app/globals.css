@@ -15,7 +15,8 @@
 
 .home-page,
 .maker-page,
-.eval-page {
+.eval-page,
+.designer-page {
   background:
     linear-gradient(180deg, #fffaf0 0%, #f8f6f1 48%, #edf7f4 100%);
   min-height: 100vh;
@@ -515,6 +516,189 @@
   max-width: 360px;
   padding: 24px;
   text-align: center;
+}
+
+.designer-shell {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 300px minmax(0, 1fr) 280px;
+  margin: 16px auto 0;
+  max-width: 1400px;
+}
+
+.designer-panel,
+.designer-workspace,
+.designer-properties {
+  background: #fffdf7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 60px #59442d14;
+  min-width: 0;
+  padding: 16px;
+}
+
+.designer-panel h1 {
+  font-size: 32px;
+  font-weight: 920;
+  line-height: 1;
+  margin: 0;
+}
+
+.designer-panel p {
+  color: #344054;
+  line-height: 1.45;
+}
+
+.designer-toolgrid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 14px 0;
+}
+
+.designer-toolgrid button,
+.designer-symbols button {
+  background: #f7f3ea;
+  border: 1px solid #e2dacd;
+  border-radius: 8px;
+  color: var(--ink);
+  font-weight: 850;
+}
+
+.designer-toolgrid button {
+  align-items: center;
+  display: inline-flex;
+  gap: 7px;
+  justify-content: center;
+  min-height: 40px;
+}
+
+.designer-toolgrid button.active {
+  background: #101827;
+  border-color: #101827;
+  color: #ffffff;
+}
+
+.designer-symbols {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 12px 0;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.designer-symbols button {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  text-align: center;
+}
+
+.designer-symbols img {
+  aspect-ratio: 1;
+  object-fit: contain;
+  width: 100%;
+}
+
+.designer-symbols span {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.designer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.designer-workspace {
+  overflow: auto;
+}
+
+.designer-canvas {
+  background:
+    linear-gradient(#f1f5f9 1px, transparent 1px),
+    linear-gradient(90deg, #f1f5f9 1px, transparent 1px),
+    #ffffff;
+  background-size: 24px 24px;
+  border: 1px solid #d5d0c5;
+  border-radius: 8px;
+  height: 720px;
+  margin: 0 auto;
+  overflow: hidden;
+  position: relative;
+  width: 980px;
+}
+
+.designer-object {
+  align-items: center;
+  border: 2px solid #111827;
+  color: var(--ink);
+  cursor: move;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+  padding: 8px;
+  position: absolute;
+  text-align: center;
+  touch-action: none;
+  user-select: none;
+}
+
+.designer-object.selected {
+  box-shadow:
+    0 0 0 3px #f6c453,
+    0 0 0 6px #117c7a;
+}
+
+.designer-object img {
+  flex: 1;
+  max-height: 100%;
+  max-width: 100%;
+  min-height: 0;
+  object-fit: contain;
+}
+
+.designer-object span {
+  font-weight: 900;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.designer-object.message {
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.designer-object.video {
+  gap: 8px;
+}
+
+.designer-prop-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 10px;
+}
+
+.designer-prop-grid label {
+  color: #344054;
+  display: grid;
+  font-size: 12px;
+  font-weight: 850;
+  gap: 5px;
+}
+
+.designer-prop-grid input {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 0 9px;
 }
 
 @theme inline {
@@ -1526,7 +1710,8 @@ button {
 
   .home-page,
   .maker-page,
-  .eval-page {
+  .eval-page,
+  .designer-page {
     padding: 10px;
   }
 
@@ -1564,6 +1749,41 @@ button {
 
   .eval-settings-button {
     width: 100%;
+  }
+
+  .designer-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .designer-canvas {
+    height: 620px;
+    width: 900px;
+  }
+}
+
+@media print {
+  .designer-page .home-nav,
+  .designer-panel,
+  .designer-properties {
+    display: none !important;
+  }
+
+  .designer-page,
+  .designer-shell,
+  .designer-workspace {
+    background: #ffffff;
+    border: 0;
+    box-shadow: none;
+    display: block;
+    margin: 0;
+    padding: 0;
+  }
+
+  .designer-canvas {
+    background: #ffffff;
+    border: 0;
+    height: 190mm;
+    width: 277mm;
   }
 }
 
