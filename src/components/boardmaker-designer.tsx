@@ -13,14 +13,14 @@ import {
   Search,
   Shapes,
   Type,
-  Video,
   Volume2,
 } from "lucide-react";
 import Link from "next/link";
 import { ChangeEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 
-type DesignerTool = "select" | "symbol" | "text" | "shape" | "message" | "video";
-type DesignerObjectKind = "symbol" | "text" | "shape" | "message" | "video";
+type DesignerTool = "select" | "symbol" | "text" | "shape" | "message";
+type DesignerObjectKind = "symbol" | "text" | "shape" | "message";
+type PickerMode = "symbol" | "shape" | null;
 
 type DesignerObject = {
   id: string;
@@ -133,6 +133,9 @@ export function BoardmakerDesigner() {
   const [message, setMessage] = useState("Lienzo libre: arrastra, redimensiona, imprime y exporta.");
   const [drag, setDrag] = useState<{ id: string; dx: number; dy: number } | null>(null);
   const [template, setTemplate] = useState("blank");
+  const [pickerMode, setPickerMode] = useState<PickerMode>(null);
+  const [pendingObject, setPendingObject] = useState<Partial<DesignerObject> | null>(null);
+  const [expanded, setExpanded] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected = useMemo(() => objects.find((object) => object.id === selectedId) ?? null, [objects, selectedId]);
@@ -154,6 +157,22 @@ export function BoardmakerDesigner() {
   useEffect(() => {
     localStorage.setItem(DESIGNER_KEY, JSON.stringify(objects));
   }, [objects]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping = target?.tagName === "INPUT" || target?.tagName === "TEXTAREA" || target?.isContentEditable;
+
+      if (!isTyping && (event.key === "Delete" || event.key === "Backspace") && selectedId) {
+        event.preventDefault();
+        setObjects((current) => current.filter((object) => object.id !== selectedId));
+        setSelectedId(null);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId]);
 
   const runSearch = async () => {
     if (!query.trim()) {
@@ -182,10 +201,10 @@ export function BoardmakerDesigner() {
       y: 80,
       w: kind === "message" ? 300 : 150,
       h: kind === "message" ? 110 : 130,
-      text: kind === "shape" ? "" : kind === "video" ? "Video" : "Texto",
-      bg: kind === "shape" ? "#dbeafe" : "#ffffff",
-      border: "#111827",
-      radius: kind === "shape" ? 999 : 8,
+      text: kind === "shape" ? "" : "Texto",
+      bg: kind === "text" ? "transparent" : kind === "shape" ? "#dbeafe" : "#ffffff",
+      border: kind === "text" ? "transparent" : "#111827",
+      radius: kind === "text" ? 0 : kind === "shape" ? 999 : 8,
       fontSize: 22,
       speak: kind === "symbol" || kind === "text" || kind === "message",
       ...patch,
@@ -196,13 +215,31 @@ export function BoardmakerDesigner() {
   };
 
   const addSymbol = (result: SymbolResult) => {
-    addObject("symbol", {
+    setPendingObject({
+      kind: "symbol",
       src: pictogramUrl(result._id),
       text: labelFromResult(result),
       bg: "#ffffff",
       w: 140,
       h: 150,
     });
+    setPickerMode(null);
+    setTool("symbol");
+    setMessage("Simbolo preparado. Haz clic en el lienzo para pegarlo.");
+  };
+
+  const chooseShape = (shape: "rect" | "round" | "circle" | "message") => {
+    const shapeConfig: Record<typeof shape, Partial<DesignerObject>> = {
+      rect: { kind: "shape", w: 170, h: 110, bg: "#dbeafe", border: "#111827", radius: 0, text: "" },
+      round: { kind: "shape", w: 170, h: 110, bg: "#dcfce7", border: "#111827", radius: 18, text: "" },
+      circle: { kind: "shape", w: 130, h: 130, bg: "#fef3c7", border: "#111827", radius: 999, text: "" },
+      message: { kind: "message", w: 260, h: 110, bg: "#ffffff", border: "#111827", radius: 18, text: "Mensaje" },
+    };
+
+    setPendingObject(shapeConfig[shape]);
+    setPickerMode(null);
+    setTool("shape");
+    setMessage("Forma preparada. Haz clic en el lienzo para pegarla.");
   };
 
   const loadImage = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -225,7 +262,15 @@ export function BoardmakerDesigner() {
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    addObject(tool === "symbol" ? "symbol" : tool, { x, y });
+    const prepared = pendingObject;
+
+    if ((tool === "symbol" || tool === "shape") && !prepared) {
+      setPickerMode(tool);
+      return;
+    }
+
+    addObject((prepared?.kind ?? tool) as DesignerObjectKind, { ...prepared, x, y });
+    setPendingObject(null);
     setTool("select");
   };
 
@@ -257,7 +302,7 @@ export function BoardmakerDesigner() {
 
     const words = selected.text
       .split(/\s+/)
-      .map((word) => word.replace(/[.,;:!?¿¡]/g, "").trim())
+      .map((word) => word.replace(/[.,;:!?]/g, "").trim())
       .filter(Boolean)
       .slice(0, 8);
     const created: DesignerObject[] = [];
@@ -333,7 +378,7 @@ export function BoardmakerDesigner() {
       <nav className="home-nav maker-nav" aria-label="Navegacion disenador">
         <Link className="home-brand" href="/">
           <span>Amaretea</span>
-          <small>Diseñador tipo Boardmaker</small>
+          <small>Disenador tipo Boardmaker</small>
         </Link>
         <div>
           <Link href="/herramientas/pictogramas">Tableros</Link>
@@ -342,26 +387,44 @@ export function BoardmakerDesigner() {
         </div>
       </nav>
 
-      <section className="designer-shell">
+      <section className={`designer-shell ${expanded ? "expanded" : ""}`}>
         <aside className="designer-panel">
           <Link className="back-link" href="/">
             <ArrowLeft size={17} />
             Herramientas
           </Link>
           <p className="eyebrow">Designer</p>
-          <h1>Diseñador libre</h1>
+          <h1>Disenador libre</h1>
           <p>
-            Cubre el flujo tipo Boardmaker: plantillas, objetos, simbolos, etiquetas, mensajes, video, estilos,
+            Cubre el flujo tipo Boardmaker: plantillas, objetos, simbolos, etiquetas, mensajes, estilos,
             acciones de voz, impresion y exportacion.
           </p>
 
           <div className="designer-toolgrid">
             <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}><MousePointer2 size={16} /> Seleccionar</button>
-            <button className={tool === "symbol" ? "active" : ""} onClick={() => setTool("symbol")}><Grid2X2 size={16} /> Simbolo</button>
+            <button
+              className={tool === "symbol" ? "active" : ""}
+              onClick={() => {
+                setTool("symbol");
+                setPickerMode("symbol");
+              }}
+            >
+              <Grid2X2 size={16} /> Simbolo
+            </button>
             <button className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}><Type size={16} /> Texto</button>
-            <button className={tool === "shape" ? "active" : ""} onClick={() => setTool("shape")}><Shapes size={16} /> Forma</button>
+            <button
+              className={tool === "shape" ? "active" : ""}
+              onClick={() => {
+                setTool("shape");
+                setPickerMode("shape");
+              }}
+            >
+              <Shapes size={16} /> Forma
+            </button>
             <button className={tool === "message" ? "active" : ""} onClick={() => setTool("message")}><MessageSquare size={16} /> Mensaje</button>
-            <button className={tool === "video" ? "active" : ""} onClick={() => setTool("video")}><Video size={16} /> Video</button>
+            <button className={expanded ? "active" : ""} onClick={() => setExpanded((current) => !current)}>
+              Ampliado
+            </button>
           </div>
 
           <div className="control-group stacked">
@@ -437,15 +500,20 @@ export function BoardmakerDesigner() {
                 onPointerDown={(event) => {
                   event.stopPropagation();
                   setSelectedId(object.id);
-                  setDrag({ id: object.id, dx: event.clientX - object.x, dy: event.clientY - object.y });
+                  const rect = canvasRef.current?.getBoundingClientRect();
+                  setDrag({
+                    id: object.id,
+                    dx: event.clientX - (rect?.left ?? 0) - object.x,
+                    dy: event.clientY - (rect?.top ?? 0) - object.y,
+                  });
                   event.currentTarget.setPointerCapture(event.pointerId);
                 }}
                 onPointerMove={(event) => {
                   if (drag?.id === object.id) {
                     const rect = canvasRef.current?.getBoundingClientRect();
                     updateObject(object.id, {
-                      x: Math.max(0, event.clientX - drag.dx - (rect?.left ?? 0)),
-                      y: Math.max(0, event.clientY - drag.dy - (rect?.top ?? 0)),
+                      x: Math.max(0, event.clientX - (rect?.left ?? 0) - drag.dx),
+                      y: Math.max(0, event.clientY - (rect?.top ?? 0) - drag.dy),
                     });
                   }
                 }}
@@ -457,7 +525,6 @@ export function BoardmakerDesigner() {
                 }}
               >
                 {object.src ? <img src={object.src} alt={object.text} /> : null}
-                {object.kind === "video" ? <Video size={34} /> : null}
                 {object.text ? <span>{object.text}</span> : null}
               </div>
             ))}
@@ -523,6 +590,51 @@ export function BoardmakerDesigner() {
           )}
         </aside>
       </section>
+
+      {pickerMode ? (
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="designer-picker-title">
+          <div className="modal designer-picker-modal">
+            <h2 id="designer-picker-title">{pickerMode === "symbol" ? "Seleccionar simbolo" : "Seleccionar forma"}</h2>
+            {pickerMode === "symbol" ? (
+              <>
+                <div className="search-box">
+                  <Search size={18} />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={(event) => event.key === "Enter" && void runSearch()}
+                    autoFocus
+                  />
+                </div>
+                <button className="command-button compact" onClick={() => void runSearch()}>
+                  Buscar simbolos
+                </button>
+                <div className="designer-symbols picker">
+                  {results.map((result) => {
+                    const label = labelFromResult(result);
+                    return (
+                      <button key={result._id} onClick={() => addSymbol(result)}>
+                        <img src={pictogramUrl(result._id)} alt={label} />
+                        <span>{label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="shape-picker-grid">
+                <button onClick={() => chooseShape("rect")}><span className="shape-preview rect" /> Rectangulo</button>
+                <button onClick={() => chooseShape("round")}><span className="shape-preview round" /> Redondeado</button>
+                <button onClick={() => chooseShape("circle")}><span className="shape-preview circle" /> Circulo</button>
+                <button onClick={() => chooseShape("message")}><span className="shape-preview message" /> Mensaje</button>
+              </div>
+            )}
+            <button className="command-button secondary" onClick={() => setPickerMode(null)}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      ) : null}
     </main>
   );
 }
