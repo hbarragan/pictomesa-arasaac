@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Amaretea | Editor de pictogramas",
+  title: "Amaretea | Herramientas educativas",
   description:
-    "Herramienta no comercial para crear e imprimir apoyos visuales CAA con cache local, biblioteca local y proveedores publicos de pictogramas.",
+    "Conjunto de herramientas no comerciales para crear apoyos visuales, pictogramas y materiales educativos desde Amaretea.",
 };
 
 export default function RootLayout({

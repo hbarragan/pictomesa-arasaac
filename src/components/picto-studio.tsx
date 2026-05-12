@@ -4,25 +4,30 @@ import {
   ArrowDownToLine,
   Bot,
   Columns3,
+  Combine,
   Copy,
   Download,
   Eraser,
   FileDown,
   FileUp,
   Grid2X2,
+  Home,
   Info,
   Layers3,
   Library,
   Plus,
   Printer,
+  RotateCcw,
   Rows3,
   Save,
   Search,
   Settings2,
   Sparkles,
   Trash2,
+  Undo2,
   Volume2,
 } from "lucide-react";
+import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Language = "es" | "en" | "fr" | "pt" | "ca" | "it" | "de";
@@ -45,7 +50,19 @@ type PictoCell = {
   pictoId?: number;
   localPictoId?: string;
   localSrc?: string;
+  secondarySource?: PictoSource;
+  secondaryPictoId?: number;
+  secondaryLocalSrc?: string;
+  secondaryLabel?: string;
   bg: string;
+  imageBg?: string;
+  borderColor?: string;
+  borderWidth?: number;
+  borderRadius?: number;
+  rotation?: number;
+  colSpan?: number;
+  rowSpan?: number;
+  printCellCm?: number;
   options: ImageOptions;
   note?: string;
 };
@@ -65,6 +82,7 @@ type Board = {
 type Project = {
   id: string;
   name: string;
+  folder?: string;
   updatedAt: string;
   activeBoardId: string;
   boards: Board[];
@@ -163,6 +181,13 @@ function makeCells(count: number): PictoCell[] {
     id: uid("cell"),
     label: "",
     bg: "#ffffff",
+    imageBg: "#ffffff",
+    borderColor: "#111827",
+    borderWidth: 2,
+    borderRadius: 8,
+    rotation: 0,
+    colSpan: 1,
+    rowSpan: 1,
     options: { ...defaultOptions },
   }));
 }
@@ -172,6 +197,13 @@ function makeInitialCells(count: number): PictoCell[] {
     id: `cell-initial-${index}`,
     label: "",
     bg: "#ffffff",
+    imageBg: "#ffffff",
+    borderColor: "#111827",
+    borderWidth: 2,
+    borderRadius: 8,
+    rotation: 0,
+    colSpan: 1,
+    rowSpan: 1,
     options: { ...defaultOptions },
   }));
 }
@@ -194,6 +226,7 @@ function makeInitialProject(): Project {
   return {
     id: "project-initial",
     name: "Mi tablero Amaretea",
+    folder: "General",
     updatedAt: INITIAL_UPDATED_AT,
     activeBoardId: "board-initial",
     boards: [
@@ -218,6 +251,7 @@ function makeProject(name = "Mi tablero Amaretea"): Project {
   return {
     id: uid("project"),
     name,
+    folder: "General",
     updatedAt: new Date().toISOString(),
     activeBoardId: board.id,
     boards: [board],
@@ -256,6 +290,22 @@ function pictogramUrl(id: number, options: ImageOptions) {
   });
 
   return `/api/arasaac/pictograms/${id}?${params.toString()}`;
+}
+
+function cellHasPrimary(cell: PictoCell) {
+  return Boolean(cell.pictoId || cell.localSrc);
+}
+
+function cellHasAnyImage(cell: PictoCell) {
+  return Boolean(cell.pictoId || cell.localSrc || cell.secondaryPictoId || cell.secondaryLocalSrc);
+}
+
+function primaryImageSrc(cell: PictoCell) {
+  return cell.localSrc ?? (cell.pictoId ? pictogramUrl(cell.pictoId, cell.options) : "");
+}
+
+function secondaryImageSrc(cell: PictoCell) {
+  return cell.secondaryLocalSrc ?? (cell.secondaryPictoId ? pictogramUrl(cell.secondaryPictoId, cell.options) : "");
 }
 
 function fileToDataUrl(file: File) {
@@ -314,6 +364,10 @@ function cloneImportedProject(imported: Project, nameSuffix = "importado"): Proj
   };
 }
 
+function snapshotProjects(projects: Project[]) {
+  return JSON.parse(JSON.stringify(projects)) as Project[];
+}
+
 export function PictoStudio() {
   const [projects, setProjects] = useState<Project[]>(() => [makeInitialProject()]);
   const [activeProjectId, setActiveProjectId] = useState(projects[0].id);
@@ -346,6 +400,7 @@ export function PictoStudio() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const localFolderInputRef = useRef<HTMLInputElement>(null);
   const localFilesInputRef = useRef<HTMLInputElement>(null);
+  const undoStackRef = useRef<Project[][]>([]);
 
   const activeProject = useMemo(
     () => projects.find((project) => project.id === activeProjectId) ?? projects[0],
@@ -376,7 +431,7 @@ export function PictoStudio() {
       const start = rowIndex * activeBoard.cols;
       const row = activeBoard.cells.slice(start, start + activeBoard.cols);
 
-      if (row.some((cell) => Boolean(cell.pictoId || cell.localSrc))) {
+      if (row.some(cellHasAnyImage)) {
         rows.push(row);
       }
     }
@@ -476,12 +531,34 @@ export function PictoStudio() {
   }, [hydrated, localPath, localPictos]);
 
   const updateActiveProject = (updater: (project: Project) => Project) => {
-    setProjects((current) =>
-      current.map((project) =>
+    setProjects((current) => {
+      undoStackRef.current = [...undoStackRef.current.slice(-29), snapshotProjects(current)];
+
+      return current.map((project) =>
         project.id === activeProject.id ? { ...updater(project), updatedAt: new Date().toISOString() } : project,
-      ),
-    );
+      );
+    });
   };
+
+  const undoLastChange = () => {
+    const previous = undoStackRef.current.pop();
+
+    if (previous) {
+      setProjects(previous);
+    }
+  };
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        undoLastChange();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const updateActiveBoard = (updater: (board: Board) => Board) => {
     updateActiveProject((project) => ({
@@ -637,28 +714,49 @@ export function PictoStudio() {
   };
 
   const setCellFromDragPayload = (cellId: string, payload: DragPictoPayload) => {
+    const currentCell = activeBoard.cells.find((cell) => cell.id === cellId);
+    const shouldCombine = Boolean(currentCell && cellHasPrimary(currentCell) && !currentCell.secondaryPictoId && !currentCell.secondaryLocalSrc);
+
     if (payload.source === "local") {
-      updateCell(cellId, {
-        source: "local",
-        localPictoId: payload.id,
-        localSrc: payload.src,
-        pictoId: undefined,
-        label: payload.label,
-      });
+      updateCell(
+        cellId,
+        shouldCombine
+          ? {
+              secondarySource: "local",
+              secondaryLocalSrc: payload.src,
+              secondaryLabel: payload.label,
+            }
+          : {
+              source: "local",
+              localPictoId: payload.id,
+              localSrc: payload.src,
+              pictoId: undefined,
+              label: payload.label,
+            },
+      );
       return;
     }
 
-    updateCell(cellId, {
-      source: "arasaac",
-      pictoId: payload.id,
-      localPictoId: undefined,
-      localSrc: undefined,
-      label: payload.label,
-      options: {
-        ...(activeBoard.cells.find((cell) => cell.id === cellId)?.options ?? defaultOptions),
-        color: payload.aacColor || payload.aac ? true : true,
-      },
-    });
+    updateCell(
+      cellId,
+      shouldCombine
+        ? {
+            secondarySource: "arasaac",
+            secondaryPictoId: payload.id,
+            secondaryLabel: payload.label,
+          }
+        : {
+            source: "arasaac",
+            pictoId: payload.id,
+            localPictoId: undefined,
+            localSrc: undefined,
+            label: payload.label,
+            options: {
+              ...(activeBoard.cells.find((cell) => cell.id === cellId)?.options ?? defaultOptions),
+              color: payload.aacColor || payload.aac ? true : true,
+            },
+          },
+    );
   };
 
   const addPictoToBoard = (result: PictoResult) => {
@@ -671,17 +769,28 @@ export function PictoStudio() {
       return;
     }
 
-    updateCell(target.id, {
-      source: "arasaac",
-      pictoId: result._id,
-      localPictoId: undefined,
-      localSrc: undefined,
-      label: getKeywordLabel(result),
-      options: {
-        ...target.options,
-        color: result.aacColor || result.aac ? true : target.options.color,
-      },
-    });
+    if (cellHasPrimary(target) && !target.secondaryPictoId && !target.secondaryLocalSrc) {
+      updateCell(target.id, {
+        secondarySource: "arasaac",
+        secondaryPictoId: result._id,
+        secondaryLabel: getKeywordLabel(result),
+      });
+    } else {
+      updateCell(target.id, {
+        source: "arasaac",
+        pictoId: result._id,
+        localPictoId: undefined,
+        localSrc: undefined,
+        secondaryPictoId: undefined,
+        secondaryLocalSrc: undefined,
+        secondaryLabel: undefined,
+        label: getKeywordLabel(result),
+        options: {
+          ...target.options,
+          color: result.aacColor || result.aac ? true : target.options.color,
+        },
+      });
+    }
     setSelectedCellId(target.id);
 
     if (window.matchMedia("(max-width: 860px)").matches) {
@@ -702,13 +811,24 @@ export function PictoStudio() {
       return;
     }
 
-    updateCell(target.id, {
-      source: "local",
-      localPictoId: picto.id,
-      localSrc: picto.src,
-      pictoId: undefined,
-      label: picto.name,
-    });
+    if (cellHasPrimary(target) && !target.secondaryPictoId && !target.secondaryLocalSrc) {
+      updateCell(target.id, {
+        secondarySource: "local",
+        secondaryLocalSrc: picto.src,
+        secondaryLabel: picto.name,
+      });
+    } else {
+      updateCell(target.id, {
+        source: "local",
+        localPictoId: picto.id,
+        localSrc: picto.src,
+        pictoId: undefined,
+        secondaryPictoId: undefined,
+        secondaryLocalSrc: undefined,
+        secondaryLabel: undefined,
+        label: picto.name,
+      });
+    }
     setSelectedCellId(target.id);
 
     if (window.matchMedia("(max-width: 860px)").matches) {
@@ -847,6 +967,9 @@ export function PictoStudio() {
           </div>
 
           <nav className="rail-actions" aria-label="Acciones rápidas">
+            <Link className="rail-icon-link" href="/" title="Inicio" aria-label="Inicio">
+              <Home size={20} />
+            </Link>
             <button title="Fuentes de pictogramas" aria-label="Fuentes de pictogramas">
               <Library size={20} />
             </button>
@@ -887,10 +1010,22 @@ export function PictoStudio() {
               >
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>
-                    {project.name}
+                    {project.folder ? `${project.folder} / ${project.name}` : project.name}
                   </option>
                 ))}
               </select>
+              <input
+                className="folder-input"
+                value={activeProject.folder ?? "General"}
+                onChange={(event) =>
+                  updateActiveProject((project) => ({
+                    ...project,
+                    folder: event.target.value,
+                  }))
+                }
+                aria-label="Carpeta del proyecto"
+                placeholder="Carpeta"
+              />
               <button
                 className="icon-button"
                 title="Nuevo proyecto"
@@ -913,6 +1048,9 @@ export function PictoStudio() {
               >
                 <Save size={18} />
                 Copia
+              </button>
+              <button className="icon-button" title="Deshacer (Ctrl+Z)" onClick={undoLastChange}>
+                <Undo2 size={18} />
               </button>
               <button className="command-button" onClick={() => fileInputRef.current?.click()}>
                 <FileUp size={18} />
@@ -1236,7 +1374,14 @@ export function PictoStudio() {
                       <button
                         key={cell.id}
                         className={`board-cell ${selected ? "selected" : ""} ${cell.bg === "#111827" ? "dark-cell" : ""}`}
-                        style={{ backgroundColor: cell.bg }}
+                        style={{
+                          backgroundColor: cell.bg,
+                          borderColor: cell.borderColor ?? "#111827",
+                          borderRadius: cell.borderRadius ?? 8,
+                          borderWidth: cell.borderWidth ?? 2,
+                          gridColumnEnd: `span ${Math.min(cell.colSpan ?? 1, activeBoard.cols)}`,
+                          gridRowEnd: `span ${Math.min(cell.rowSpan ?? 1, activeBoard.rows)}`,
+                        }}
                         onClick={() => setSelectedCellId(cell.id)}
                         draggable
                         onDragStart={() => setDragCellId(cell.id)}
@@ -1262,14 +1407,26 @@ export function PictoStudio() {
                         {activeBoard.labelPosition === "top" ? (
                           <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
                         ) : null}
-                        <div className="picto-image-wrap">
-                          {cell.localSrc ? (
-                            <img src={cell.localSrc} alt={cell.label} draggable={false} />
-                          ) : cell.pictoId ? (
-                            <img src={pictogramUrl(cell.pictoId, cell.options)} alt={cell.label} draggable={false} />
-                          ) : (
+                        <div className={`picto-image-wrap ${secondaryImageSrc(cell) ? "combined" : ""}`} style={{ backgroundColor: cell.imageBg ?? "transparent" }}>
+                          {primaryImageSrc(cell) ? (
+                            <img
+                              src={primaryImageSrc(cell)}
+                              alt={cell.label}
+                              draggable={false}
+                              style={{ transform: `rotate(${cell.rotation ?? 0}deg)` }}
+                            />
+                          ) : null}
+                          {secondaryImageSrc(cell) ? (
+                            <img
+                              src={secondaryImageSrc(cell)}
+                              alt={cell.secondaryLabel ?? cell.label}
+                              draggable={false}
+                              style={{ transform: `rotate(${cell.rotation ?? 0}deg)` }}
+                            />
+                          ) : null}
+                          {!primaryImageSrc(cell) && !secondaryImageSrc(cell) ? (
                             <Plus size={26} aria-hidden />
-                          )}
+                          ) : null}
                         </div>
                         {activeBoard.labelPosition === "bottom" ? (
                           <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
@@ -1288,7 +1445,7 @@ export function PictoStudio() {
                 >
                   {printableRows.flatMap((row, rowIndex) =>
                     row.map((cell, cellIndex) => {
-                      const hasImage = Boolean(cell.pictoId || cell.localSrc);
+                      const hasImage = cellHasAnyImage(cell);
 
                       if (!hasImage) {
                         return (
@@ -1310,19 +1467,35 @@ export function PictoStudio() {
                           className={`board-cell print-cell ${cell.bg === "#111827" ? "dark-cell" : ""}`}
                           style={{
                             backgroundColor: cell.bg,
-                            height: `${activeBoard.printCellCm ?? 5}cm`,
-                            width: `${activeBoard.printCellCm ?? 5}cm`,
+                            borderColor: cell.borderColor ?? "#000000",
+                            borderRadius: cell.borderRadius ?? 0,
+                            borderWidth: cell.borderWidth ?? 1,
+                            gridColumnEnd: `span ${Math.min(cell.colSpan ?? 1, activeBoard.cols)}`,
+                            gridRowEnd: `span ${Math.min(cell.rowSpan ?? 1, activeBoard.rows)}`,
+                            height: `${cell.printCellCm ?? activeBoard.printCellCm ?? 5}cm`,
+                            width: `${cell.printCellCm ?? activeBoard.printCellCm ?? 5}cm`,
                           }}
                         >
                           {activeBoard.labelPosition === "top" ? (
                             <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
                           ) : null}
-                          <div className="picto-image-wrap">
-                            <img
-                              src={cell.localSrc ?? pictogramUrl(cell.pictoId!, cell.options)}
-                              alt={cell.label}
-                              draggable={false}
-                            />
+                          <div className={`picto-image-wrap ${secondaryImageSrc(cell) ? "combined" : ""}`} style={{ backgroundColor: cell.imageBg ?? "transparent" }}>
+                            {primaryImageSrc(cell) ? (
+                              <img
+                                src={primaryImageSrc(cell)}
+                                alt={cell.label}
+                                draggable={false}
+                                style={{ transform: `rotate(${cell.rotation ?? 0}deg)` }}
+                              />
+                            ) : null}
+                            {secondaryImageSrc(cell) ? (
+                              <img
+                                src={secondaryImageSrc(cell)}
+                                alt={cell.secondaryLabel ?? cell.label}
+                                draggable={false}
+                                style={{ transform: `rotate(${cell.rotation ?? 0}deg)` }}
+                              />
+                            ) : null}
                           </div>
                           {activeBoard.labelPosition === "bottom" ? (
                             <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
@@ -1486,6 +1659,111 @@ export function PictoStudio() {
                     ))}
                   </div>
 
+                  <div className="designer-box">
+                    <div className="designer-title">
+                      <Combine size={16} />
+                      Diseñador de celda
+                    </div>
+                    <div className="control-group">
+                      <label>Ancho</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={activeBoard.cols}
+                        value={selectedCell.colSpan ?? 1}
+                        onChange={(event) => updateCell(selectedCell.id, { colSpan: Number(event.target.value) || 1 })}
+                      />
+                    </div>
+                    <div className="control-group">
+                      <label>Alto</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={activeBoard.rows}
+                        value={selectedCell.rowSpan ?? 1}
+                        onChange={(event) => updateCell(selectedCell.id, { rowSpan: Number(event.target.value) || 1 })}
+                      />
+                    </div>
+                    <div className="control-group">
+                      <label>Tam. cm</label>
+                      <input
+                        type="number"
+                        min={2}
+                        max={18}
+                        step={0.5}
+                        value={selectedCell.printCellCm ?? activeBoard.printCellCm ?? 5}
+                        onChange={(event) => updateCell(selectedCell.id, { printCellCm: Number(event.target.value) || 5 })}
+                      />
+                    </div>
+                    <div className="control-group">
+                      <label>
+                        <RotateCcw size={16} />
+                        Giro
+                      </label>
+                      <input
+                        type="number"
+                        min={-180}
+                        max={180}
+                        step={90}
+                        value={selectedCell.rotation ?? 0}
+                        onChange={(event) => updateCell(selectedCell.id, { rotation: Number(event.target.value) || 0 })}
+                      />
+                    </div>
+                    <div className="control-group">
+                      <label>Marco</label>
+                      <input
+                        type="color"
+                        value={selectedCell.borderColor ?? "#111827"}
+                        onChange={(event) => updateCell(selectedCell.id, { borderColor: event.target.value })}
+                      />
+                    </div>
+                    <div className="control-group">
+                      <label>Grosor</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={8}
+                        value={selectedCell.borderWidth ?? 2}
+                        onChange={(event) => updateCell(selectedCell.id, { borderWidth: Number(event.target.value) })}
+                      />
+                    </div>
+                    <div className="control-group">
+                      <label>Radio</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={40}
+                        value={selectedCell.borderRadius ?? 8}
+                        onChange={(event) => updateCell(selectedCell.id, { borderRadius: Number(event.target.value) })}
+                      />
+                    </div>
+                    <div className="control-group">
+                      <label>Fondo picto</label>
+                      <input
+                        type="color"
+                        value={selectedCell.imageBg ?? "#ffffff"}
+                        onChange={(event) => updateCell(selectedCell.id, { imageBg: event.target.value })}
+                      />
+                    </div>
+                    {selectedCell.secondaryPictoId || selectedCell.secondaryLocalSrc ? (
+                      <button
+                        className="command-button secondary compact"
+                        onClick={() =>
+                          updateCell(selectedCell.id, {
+                            secondarySource: undefined,
+                            secondaryPictoId: undefined,
+                            secondaryLocalSrc: undefined,
+                            secondaryLabel: undefined,
+                          })
+                        }
+                      >
+                        Quitar segundo picto
+                      </button>
+                    ) : (
+                      <p>Selecciona una celda con imagen y pulsa otro resultado para combinar dos pictos.</p>
+                    )}
+                  </div>
+
                   <label className="toggle-line">
                     <input
                       type="checkbox"
@@ -1559,6 +1837,10 @@ export function PictoStudio() {
                           pictoId: undefined,
                           localPictoId: undefined,
                           localSrc: undefined,
+                          secondarySource: undefined,
+                          secondaryPictoId: undefined,
+                          secondaryLocalSrc: undefined,
+                          secondaryLabel: undefined,
                           label: "",
                           note: "",
                         })
