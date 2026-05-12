@@ -79,6 +79,17 @@ function fileToDataUrl(file: File) {
   });
 }
 
+function displayFontSize(object: DesignerObject) {
+  if (object.kind !== "symbol" || object.src || !object.text) {
+    return object.fontSize;
+  }
+
+  const textFactor = Math.max(1, object.text.length * 0.58);
+  const fittedByWidth = object.w / textFactor;
+  const fittedByHeight = object.h * 0.82;
+  return Math.max(object.fontSize, Math.min(fittedByWidth, fittedByHeight));
+}
+
 const templateObjects: Record<string, DesignerObject[]> = {
   blank: [],
   communication: Array.from({ length: 12 }, (_, index) => ({
@@ -550,7 +561,7 @@ export function BoardmakerDesigner() {
                     object.shapeType?.includes("arrow") || object.shapeType?.includes("curve") || object.shapeType === "line"
                       ? object.border
                       : undefined,
-                  fontSize: object.fontSize,
+                  fontSize: displayFontSize(object),
                 }}
                 onPointerDown={(event) => {
                   event.stopPropagation();
