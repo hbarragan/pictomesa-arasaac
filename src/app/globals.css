@@ -672,6 +672,7 @@
   box-shadow:
     0 0 0 3px #f6c453,
     0 0 0 6px #117c7a;
+  overflow: visible;
 }
 
 .designer-object img {
@@ -698,6 +699,245 @@
   background: transparent !important;
   border-color: transparent !important;
   padding: 0;
+}
+
+.designer-object.shape-line,
+.designer-object.shape-arrow-right,
+.designer-object.shape-arrow-left,
+.designer-object.shape-arrow-up,
+.designer-object.shape-arrow-down,
+.designer-object.shape-double-arrow,
+.designer-object.shape-curve-right,
+.designer-object.shape-curve-left {
+  background: transparent !important;
+  border-color: transparent !important;
+  overflow: visible;
+  padding: 0;
+}
+
+.designer-object.shape-line::before,
+.designer-object.shape-arrow-right::before,
+.designer-object.shape-arrow-left::before,
+.designer-object.shape-double-arrow::before {
+  border-top: 3px solid currentColor;
+  content: "";
+  left: 8px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.designer-object.shape-arrow-right::before {
+  right: 18px;
+}
+
+.designer-object.shape-arrow-left::before {
+  left: 18px;
+}
+
+.designer-object.shape-arrow-right::after,
+.designer-object.shape-arrow-left::after,
+.designer-object.shape-double-arrow::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.designer-object.shape-arrow-right::after {
+  border-bottom: 8px solid transparent;
+  border-left: 13px solid currentColor;
+  border-top: 8px solid transparent;
+  right: 6px;
+}
+
+.designer-object.shape-arrow-left::after {
+  border-bottom: 8px solid transparent;
+  border-right: 13px solid currentColor;
+  border-top: 8px solid transparent;
+  left: 6px;
+}
+
+.designer-object.shape-double-arrow::after {
+  border-bottom: 8px solid transparent;
+  border-left: 13px solid currentColor;
+  border-top: 8px solid transparent;
+  right: 6px;
+}
+
+.designer-object.shape-double-arrow::before {
+  left: 18px;
+  right: 18px;
+}
+
+.designer-object.shape-double-arrow {
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentColor 50%),
+    linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: 8px calc(50% - 8px), 8px calc(50% + 8px);
+  background-repeat: no-repeat;
+  background-size: 10px 10px;
+}
+
+.designer-object.shape-arrow-up::before,
+.designer-object.shape-arrow-down::before {
+  border-left: 3px solid currentColor;
+  bottom: 8px;
+  content: "";
+  left: 50%;
+  position: absolute;
+  top: 8px;
+  transform: translateX(-50%);
+}
+
+.designer-object.shape-arrow-up::before {
+  top: 18px;
+}
+
+.designer-object.shape-arrow-down::before {
+  bottom: 18px;
+}
+
+.designer-object.shape-arrow-up::after,
+.designer-object.shape-arrow-down::after {
+  content: "";
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
+}
+
+.designer-object.shape-arrow-up::after {
+  border-bottom: 13px solid currentColor;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  top: 6px;
+}
+
+.designer-object.shape-arrow-down::after {
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 13px solid currentColor;
+  bottom: 6px;
+}
+
+.designer-object.shape-curve-right::before,
+.designer-object.shape-curve-left::before {
+  border-color: currentColor;
+  border-style: solid;
+  content: "";
+  height: calc(100% - 28px);
+  position: absolute;
+  top: 14px;
+  width: calc(100% - 36px);
+}
+
+.designer-object.shape-curve-right::before {
+  border-bottom-width: 0;
+  border-left-width: 0;
+  border-radius: 0 56px 0 0;
+  border-right-width: 3px;
+  border-top-width: 3px;
+  left: 14px;
+}
+
+.designer-object.shape-curve-left::before {
+  border-bottom-width: 0;
+  border-left-width: 3px;
+  border-radius: 56px 0 0 0;
+  border-right-width: 0;
+  border-top-width: 3px;
+  right: 14px;
+}
+
+.designer-object.shape-curve-right::after,
+.designer-object.shape-curve-left::after {
+  border-top: 13px solid currentColor;
+  content: "";
+  position: absolute;
+  top: calc(100% - 24px);
+}
+
+.designer-object.shape-curve-right::after {
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  right: 5px;
+}
+
+.designer-object.shape-curve-left::after {
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  left: 5px;
+}
+
+.resize-handle {
+  background: #ffffff;
+  border: 2px solid #117c7a;
+  border-radius: 999px;
+  height: 13px;
+  padding: 0;
+  position: absolute;
+  width: 13px;
+  z-index: 4;
+}
+
+.resize-handle.nw,
+.resize-handle.ne,
+.resize-handle.sw,
+.resize-handle.se {
+  background: #f6c453;
+}
+
+.resize-handle.nw {
+  cursor: nwse-resize;
+  left: 2px;
+  top: 2px;
+}
+
+.resize-handle.n {
+  cursor: ns-resize;
+  left: 50%;
+  top: 2px;
+  transform: translateX(-50%);
+}
+
+.resize-handle.ne {
+  cursor: nesw-resize;
+  right: 2px;
+  top: 2px;
+}
+
+.resize-handle.e {
+  cursor: ew-resize;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.resize-handle.se {
+  bottom: 2px;
+  cursor: nwse-resize;
+  right: 2px;
+}
+
+.resize-handle.s {
+  bottom: 2px;
+  cursor: ns-resize;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.resize-handle.sw {
+  bottom: 2px;
+  cursor: nesw-resize;
+  left: 2px;
+}
+
+.resize-handle.w {
+  cursor: ew-resize;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 .designer-prop-grid {
@@ -728,9 +968,29 @@
   width: min(760px, calc(100vw - 32px));
 }
 
-.designer-symbols.picker {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  max-height: 420px;
+.ascii-symbol-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin: 12px 0 16px;
+}
+
+.ascii-symbol-grid button {
+  align-items: center;
+  background: #f7f3ea;
+  border: 1px solid #e2dacd;
+  border-radius: 8px;
+  color: var(--ink);
+  display: flex;
+  justify-content: center;
+  min-height: 68px;
+  padding: 8px;
+}
+
+.ascii-symbol-grid span {
+  font-size: 26px;
+  font-weight: 950;
+  line-height: 1;
 }
 
 .shape-picker-grid {
@@ -775,6 +1035,109 @@
 .shape-preview.message {
   background: #ffffff;
   border-radius: 16px;
+}
+
+.shape-preview.connector {
+  background: transparent;
+  border: 0;
+  position: relative;
+}
+
+.shape-preview.connector::before {
+  border-top: 3px solid #111827;
+  content: "";
+  left: 6px;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+}
+
+.shape-preview.connector.arrow-right::after,
+.shape-preview.connector.arrow-left::after,
+.shape-preview.connector.double-arrow::after {
+  content: "";
+  position: absolute;
+  top: calc(50% - 7px);
+}
+
+.shape-preview.connector.arrow-right::after,
+.shape-preview.connector.double-arrow::after {
+  border-bottom: 7px solid transparent;
+  border-left: 11px solid #111827;
+  border-top: 7px solid transparent;
+  right: 4px;
+}
+
+.shape-preview.connector.arrow-left::after {
+  border-bottom: 7px solid transparent;
+  border-right: 11px solid #111827;
+  border-top: 7px solid transparent;
+  left: 4px;
+}
+
+.shape-preview.connector.double-arrow {
+  background-image:
+    linear-gradient(45deg, transparent 50%, #111827 50%),
+    linear-gradient(135deg, #111827 50%, transparent 50%);
+  background-position: 5px calc(50% - 7px), 5px calc(50% + 7px);
+  background-repeat: no-repeat;
+  background-size: 10px 10px;
+}
+
+.shape-preview.connector.arrow-up::before,
+.shape-preview.connector.arrow-down::before {
+  border-left: 3px solid #111827;
+  border-top: 0;
+  bottom: 5px;
+  left: 50%;
+  right: auto;
+  top: 5px;
+}
+
+.shape-preview.connector.arrow-up::after,
+.shape-preview.connector.arrow-down::after {
+  content: "";
+  left: calc(50% - 7px);
+  position: absolute;
+}
+
+.shape-preview.connector.arrow-up::after {
+  border-bottom: 11px solid #111827;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  top: 4px;
+}
+
+.shape-preview.connector.arrow-down::after {
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 11px solid #111827;
+  bottom: 4px;
+}
+
+.shape-preview.connector.curve-right::before,
+.shape-preview.connector.curve-left::before {
+  border-color: #111827;
+  border-style: solid;
+  height: 42px;
+  top: 7px;
+  width: 58px;
+}
+
+.shape-preview.connector.curve-right::before {
+  border-bottom-width: 0;
+  border-left-width: 0;
+  border-radius: 0 34px 0 0;
+  border-right-width: 3px;
+  border-top-width: 3px;
+}
+
+.shape-preview.connector.curve-left::before {
+  border-bottom-width: 0;
+  border-left-width: 3px;
+  border-radius: 34px 0 0 0;
+  border-right-width: 0;
+  border-top-width: 3px;
 }
 
 @theme inline {
@@ -1860,6 +2223,14 @@ button {
     border: 0;
     height: 190mm;
     width: 277mm;
+  }
+
+  .designer-object.selected {
+    box-shadow: none;
+  }
+
+  .resize-handle {
+    display: none !important;
   }
 }
 

@@ -10,7 +10,6 @@ import {
   MessageSquare,
   MousePointer2,
   Plus,
-  Search,
   Shapes,
   Type,
   Volume2,
@@ -31,6 +30,7 @@ type DesignerObject = {
   h: number;
   text: string;
   src?: string;
+  shapeType?: string;
   bg: string;
   border: string;
   radius: number;
@@ -38,24 +38,26 @@ type DesignerObject = {
   speak?: boolean;
 };
 
-type SymbolResult = {
-  _id: number;
-  keywords?: ({ keyword?: string } | string)[];
-};
-
 const DESIGNER_KEY = "amaretea-boardmaker-designer-v1";
+const ASCII_SYMBOLS = ["OK", "X", "?", "!", "+", "-", "=", "*", "#", "@", "->", "<-", "^", "v", "<->", ":)", ":(", ":|", "1", "2", "3", "A", "B", "C"];
+const RESIZE_HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
+type ResizeHandle = (typeof RESIZE_HANDLES)[number];
+type ShapeChoice =
+  | "rect"
+  | "round"
+  | "circle"
+  | "message"
+  | "line"
+  | "arrow-right"
+  | "arrow-left"
+  | "arrow-up"
+  | "arrow-down"
+  | "double-arrow"
+  | "curve-right"
+  | "curve-left";
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}-${Date.now().toString(36)}`;
-}
-
-function labelFromResult(result: SymbolResult) {
-  const first = result.keywords?.[0];
-  return typeof first === "string" ? first : first?.keyword ?? `Picto ${result._id}`;
-}
-
-function pictogramUrl(id: number) {
-  return `/api/arasaac/pictograms/${id}?download=false&color=true&resolution=500&skin=white&hair=brown`;
 }
 
 function downloadBlob(content: string, filename: string, type: string) {
@@ -128,10 +130,18 @@ export function BoardmakerDesigner() {
   const [objects, setObjects] = useState<DesignerObject[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<DesignerTool>("select");
-  const [query, setQuery] = useState("comer");
-  const [results, setResults] = useState<SymbolResult[]>([]);
   const [message, setMessage] = useState("Lienzo libre: arrastra, redimensiona, imprime y exporta.");
   const [drag, setDrag] = useState<{ id: string; dx: number; dy: number } | null>(null);
+  const [resize, setResize] = useState<{
+    handle: ResizeHandle;
+    id: string;
+    startH: number;
+    startW: number;
+    startX: number;
+    startY: number;
+    startObjectX: number;
+    startObjectY: number;
+  } | null>(null);
   const [template, setTemplate] = useState("blank");
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const [pendingObject, setPendingObject] = useState<Partial<DesignerObject> | null>(null);
@@ -174,20 +184,73 @@ export function BoardmakerDesigner() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId]);
 
-  const runSearch = async () => {
-    if (!query.trim()) {
-      setResults([]);
+  useEffect(() => {
+    if (!resize) {
       return;
     }
 
-    const response = await fetch(`/api/arasaac/pictograms/es/search/${encodeURIComponent(query.trim())}`);
-    if (!response.ok) {
-      setMessage("No pude consultar el proveedor de pictogramas.");
-      return;
-    }
-    const data = (await response.json()) as SymbolResult[];
-    setResults(Array.isArray(data) ? data.slice(0, 24) : []);
-  };
+    const onPointerMove = (event: globalThis.PointerEvent) => {
+      const dx = event.clientX - resize.startX;
+      const dy = event.clientY - resize.startY;
+      const minW = 32;
+      const minH = 28;
+      let nextX = resize.startObjectX;
+      let nextY = resize.startObjectY;
+      let nextW = resize.startW;
+      let nextH = resize.startH;
+
+      if (resize.handle.includes("e")) {
+        nextW = resize.startW + dx;
+      }
+      if (resize.handle.includes("s")) {
+        nextH = resize.startH + dy;
+      }
+      if (resize.handle.includes("w")) {
+        nextW = resize.startW - dx;
+        nextX = resize.startObjectX + dx;
+      }
+      if (resize.handle.includes("n")) {
+        nextH = resize.startH - dy;
+        nextY = resize.startObjectY + dy;
+      }
+
+      if (nextW < minW) {
+        if (resize.handle.includes("w")) {
+          nextX = resize.startObjectX + resize.startW - minW;
+        }
+        nextW = minW;
+      }
+      if (nextH < minH) {
+        if (resize.handle.includes("n")) {
+          nextY = resize.startObjectY + resize.startH - minH;
+        }
+        nextH = minH;
+      }
+
+      setObjects((current) =>
+        current.map((object) =>
+          object.id === resize.id
+            ? {
+                ...object,
+                h: nextH,
+                w: nextW,
+                x: Math.max(0, nextX),
+                y: Math.max(0, nextY),
+              }
+            : object,
+        ),
+      );
+    };
+
+    const onPointerUp = () => setResize(null);
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [resize]);
 
   const updateObject = (id: string, patch: Partial<DesignerObject>) => {
     setObjects((current) => current.map((object) => (object.id === id ? { ...object, ...patch } : object)));
@@ -214,26 +277,38 @@ export function BoardmakerDesigner() {
     setSelectedId(object.id);
   };
 
-  const addSymbol = (result: SymbolResult) => {
+  const chooseAsciiSymbol = (symbol: string) => {
     setPendingObject({
       kind: "symbol",
-      src: pictogramUrl(result._id),
-      text: labelFromResult(result),
-      bg: "#ffffff",
-      w: 140,
-      h: 150,
+      src: undefined,
+      text: symbol,
+      bg: "transparent",
+      border: "transparent",
+      radius: 0,
+      fontSize: 44,
+      w: 96,
+      h: 72,
+      speak: false,
     });
     setPickerMode(null);
     setTool("symbol");
-    setMessage("Simbolo preparado. Haz clic en el lienzo para pegarlo.");
+    setMessage("Simbolo ASCII preparado. Haz clic en el lienzo para pegarlo.");
   };
 
-  const chooseShape = (shape: "rect" | "round" | "circle" | "message") => {
-    const shapeConfig: Record<typeof shape, Partial<DesignerObject>> = {
-      rect: { kind: "shape", w: 170, h: 110, bg: "#dbeafe", border: "#111827", radius: 0, text: "" },
-      round: { kind: "shape", w: 170, h: 110, bg: "#dcfce7", border: "#111827", radius: 18, text: "" },
-      circle: { kind: "shape", w: 130, h: 130, bg: "#fef3c7", border: "#111827", radius: 999, text: "" },
-      message: { kind: "message", w: 260, h: 110, bg: "#ffffff", border: "#111827", radius: 18, text: "Mensaje" },
+  const chooseShape = (shape: ShapeChoice) => {
+    const shapeConfig: Record<ShapeChoice, Partial<DesignerObject>> = {
+      rect: { kind: "shape", shapeType: "rect", w: 170, h: 110, bg: "#dbeafe", border: "#111827", radius: 0, text: "" },
+      round: { kind: "shape", shapeType: "round", w: 170, h: 110, bg: "#dcfce7", border: "#111827", radius: 18, text: "" },
+      circle: { kind: "shape", shapeType: "circle", w: 130, h: 130, bg: "#fef3c7", border: "#111827", radius: 999, text: "" },
+      message: { kind: "message", shapeType: "message", w: 260, h: 110, bg: "#ffffff", border: "#111827", radius: 18, text: "Mensaje" },
+      line: { kind: "shape", shapeType: "line", w: 220, h: 30, bg: "transparent", border: "#111827", radius: 0, text: "" },
+      "arrow-right": { kind: "shape", shapeType: "arrow-right", w: 220, h: 42, bg: "transparent", border: "#111827", radius: 0, text: "" },
+      "arrow-left": { kind: "shape", shapeType: "arrow-left", w: 220, h: 42, bg: "transparent", border: "#111827", radius: 0, text: "" },
+      "arrow-up": { kind: "shape", shapeType: "arrow-up", w: 42, h: 220, bg: "transparent", border: "#111827", radius: 0, text: "" },
+      "arrow-down": { kind: "shape", shapeType: "arrow-down", w: 42, h: 220, bg: "transparent", border: "#111827", radius: 0, text: "" },
+      "double-arrow": { kind: "shape", shapeType: "double-arrow", w: 240, h: 42, bg: "transparent", border: "#111827", radius: 0, text: "" },
+      "curve-right": { kind: "shape", shapeType: "curve-right", w: 170, h: 120, bg: "transparent", border: "#111827", radius: 0, text: "" },
+      "curve-left": { kind: "shape", shapeType: "curve-left", w: 170, h: 120, bg: "transparent", border: "#111827", radius: 0, text: "" },
     };
 
     setPendingObject(shapeConfig[shape]);
@@ -300,50 +375,21 @@ export function BoardmakerDesigner() {
       return;
     }
 
-    const words = selected.text
-      .split(/\s+/)
-      .map((word) => word.replace(/[.,;:!?]/g, "").trim())
-      .filter(Boolean)
-      .slice(0, 8);
-    const created: DesignerObject[] = [];
-
-    for (const [index, word] of words.entries()) {
-      try {
-        const response = await fetch(`/api/arasaac/pictograms/es/bestsearch/${encodeURIComponent(word)}`);
-        const data = response.ok ? ((await response.json()) as SymbolResult[]) : [];
-        const first = data[0];
-        created.push({
-          id: uid("obj"),
-          kind: "symbol",
-          x: selected.x + index * 112,
-          y: selected.y + selected.h + 18,
-          w: 100,
-          h: 112,
-          text: word,
-          src: first ? pictogramUrl(first._id) : undefined,
-          bg: "#ffffff",
-          border: "#111827",
-          radius: 8,
-          fontSize: 16,
-          speak: true,
-        });
-      } catch {
-        created.push({
-          id: uid("obj"),
-          kind: "text",
-          x: selected.x + index * 112,
-          y: selected.y + selected.h + 18,
-          w: 100,
-          h: 70,
-          text: word,
-          bg: "#ffffff",
-          border: "#111827",
-          radius: 8,
-          fontSize: 16,
-          speak: true,
-        });
-      }
-    }
+    const words = selected.text.split(/\s+/).filter(Boolean).slice(0, 8);
+    const created: DesignerObject[] = words.map((word, index) => ({
+      id: uid("obj"),
+      kind: "symbol",
+      x: selected.x + index * 86,
+      y: selected.y + selected.h + 18,
+      w: 76,
+      h: 58,
+      text: word.slice(0, 2).toUpperCase(),
+      bg: "transparent",
+      border: "transparent",
+      radius: 0,
+      fontSize: 28,
+      speak: false,
+    }));
 
     setObjects((current) => [...current, ...created]);
     setMessage(`Symbolate creado con ${created.length} elementos.`);
@@ -371,6 +417,23 @@ export function BoardmakerDesigner() {
     window.addEventListener("afterprint", cleanup, { once: true });
     window.print();
     window.setTimeout(cleanup, 1200);
+  };
+
+  const startResize = (event: PointerEvent<HTMLButtonElement>, object: DesignerObject, handle: ResizeHandle) => {
+    event.stopPropagation();
+    setSelectedId(object.id);
+    setDrag(null);
+    setResize({
+      handle,
+      id: object.id,
+      startH: object.h,
+      startW: object.w,
+      startX: event.clientX,
+      startY: event.clientY,
+      startObjectX: object.x,
+      startObjectY: object.y,
+    });
+    event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   return (
@@ -443,30 +506,18 @@ export function BoardmakerDesigner() {
             </select>
           </div>
 
-          <div className="search-box">
-            <Search size={18} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => event.key === "Enter" && void runSearch()} />
-          </div>
-          <button className="command-button compact" onClick={() => void runSearch()}>
-            Buscar simbolos
+          <button className="command-button compact" onClick={() => setPickerMode("symbol")}>
+            Abrir simbolos ASCII
+          </button>
+          <button className="command-button secondary compact" onClick={() => setPickerMode("shape")}>
+            <Shapes size={16} />
+            Formas y conectores
           </button>
           <button className="command-button secondary compact" onClick={() => fileInputRef.current?.click()}>
             <ImageIcon size={16} />
             Imagen local
           </button>
           <input ref={fileInputRef} className="sr-only" type="file" accept="image/*" onChange={loadImage} />
-
-          <div className="designer-symbols">
-            {results.map((result) => {
-              const label = labelFromResult(result);
-              return (
-                <button key={result._id} onClick={() => addSymbol(result)}>
-                  <img src={pictogramUrl(result._id)} alt={label} />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
 
           <div className="designer-actions">
             <button className="command-button secondary compact" onClick={exportJson}><FileDown size={16} /> JSON</button>
@@ -486,7 +537,7 @@ export function BoardmakerDesigner() {
             {objects.map((object) => (
               <div
                 key={object.id}
-                className={`designer-object ${selectedId === object.id ? "selected" : ""} ${object.kind}`}
+                className={`designer-object ${selectedId === object.id ? "selected" : ""} ${object.kind} shape-${object.shapeType ?? "plain"}`}
                 style={{
                   left: object.x,
                   top: object.y,
@@ -495,10 +546,17 @@ export function BoardmakerDesigner() {
                   backgroundColor: object.bg,
                   borderColor: object.border,
                   borderRadius: object.radius,
+                  color:
+                    object.shapeType?.includes("arrow") || object.shapeType?.includes("curve") || object.shapeType === "line"
+                      ? object.border
+                      : undefined,
                   fontSize: object.fontSize,
                 }}
                 onPointerDown={(event) => {
                   event.stopPropagation();
+                  if (resize) {
+                    return;
+                  }
                   setSelectedId(object.id);
                   const rect = canvasRef.current?.getBoundingClientRect();
                   setDrag({
@@ -517,7 +575,10 @@ export function BoardmakerDesigner() {
                     });
                   }
                 }}
-                onPointerUp={() => setDrag(null)}
+                onPointerUp={() => {
+                  setDrag(null);
+                  setResize(null);
+                }}
                 onDoubleClick={() => {
                   if (object.speak && object.text && "speechSynthesis" in window) {
                     window.speechSynthesis.speak(new SpeechSynthesisUtterance(object.text));
@@ -526,6 +587,17 @@ export function BoardmakerDesigner() {
               >
                 {object.src ? <img src={object.src} alt={object.text} /> : null}
                 {object.text ? <span>{object.text}</span> : null}
+                {selectedId === object.id
+                  ? RESIZE_HANDLES.map((handle) => (
+                      <button
+                        key={handle}
+                        aria-label={`Redimensionar ${handle}`}
+                        className={`resize-handle ${handle}`}
+                        onPointerDown={(event) => startResize(event, object, handle)}
+                        onPointerUp={() => setResize(null)}
+                      />
+                    ))
+                  : null}
               </div>
             ))}
           </div>
@@ -596,37 +668,27 @@ export function BoardmakerDesigner() {
           <div className="modal designer-picker-modal">
             <h2 id="designer-picker-title">{pickerMode === "symbol" ? "Seleccionar simbolo" : "Seleccionar forma"}</h2>
             {pickerMode === "symbol" ? (
-              <>
-                <div className="search-box">
-                  <Search size={18} />
-                  <input
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    onKeyDown={(event) => event.key === "Enter" && void runSearch()}
-                    autoFocus
-                  />
-                </div>
-                <button className="command-button compact" onClick={() => void runSearch()}>
-                  Buscar simbolos
-                </button>
-                <div className="designer-symbols picker">
-                  {results.map((result) => {
-                    const label = labelFromResult(result);
-                    return (
-                      <button key={result._id} onClick={() => addSymbol(result)}>
-                        <img src={pictogramUrl(result._id)} alt={label} />
-                        <span>{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
+              <div className="ascii-symbol-grid">
+                {ASCII_SYMBOLS.map((symbol) => (
+                  <button key={symbol} onClick={() => chooseAsciiSymbol(symbol)}>
+                    <span>{symbol}</span>
+                  </button>
+                ))}
+              </div>
             ) : (
               <div className="shape-picker-grid">
                 <button onClick={() => chooseShape("rect")}><span className="shape-preview rect" /> Rectangulo</button>
                 <button onClick={() => chooseShape("round")}><span className="shape-preview round" /> Redondeado</button>
                 <button onClick={() => chooseShape("circle")}><span className="shape-preview circle" /> Circulo</button>
                 <button onClick={() => chooseShape("message")}><span className="shape-preview message" /> Mensaje</button>
+                <button onClick={() => chooseShape("line")}><span className="shape-preview connector line" /> Linea</button>
+                <button onClick={() => chooseShape("arrow-right")}><span className="shape-preview connector arrow-right" /> Flecha derecha</button>
+                <button onClick={() => chooseShape("arrow-left")}><span className="shape-preview connector arrow-left" /> Flecha izquierda</button>
+                <button onClick={() => chooseShape("arrow-up")}><span className="shape-preview connector arrow-up" /> Flecha arriba</button>
+                <button onClick={() => chooseShape("arrow-down")}><span className="shape-preview connector arrow-down" /> Flecha abajo</button>
+                <button onClick={() => chooseShape("double-arrow")}><span className="shape-preview connector double-arrow" /> Doble flecha</button>
+                <button onClick={() => chooseShape("curve-right")}><span className="shape-preview connector curve-right" /> Flecha curva derecha</button>
+                <button onClick={() => chooseShape("curve-left")}><span className="shape-preview connector curve-left" /> Flecha curva izquierda</button>
               </div>
             )}
             <button className="command-button secondary" onClick={() => setPickerMode(null)}>
