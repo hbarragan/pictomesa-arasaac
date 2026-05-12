@@ -14,7 +14,8 @@
 }
 
 .home-page,
-.maker-page {
+.maker-page,
+.eval-page {
   background:
     linear-gradient(180deg, #fffaf0 0%, #f8f6f1 48%, #edf7f4 100%);
   min-height: 100vh;
@@ -293,6 +294,227 @@
   max-height: calc(100vh - 140px);
   max-width: 100%;
   touch-action: none;
+}
+
+.eval-shell {
+  margin: 16px auto 0;
+  max-width: 980px;
+}
+
+.eval-hero,
+.eval-card,
+.eval-toolbar,
+.eval-message,
+.eval-loading {
+  background: #fffdf7;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 18px 60px #59442d14;
+}
+
+.eval-hero {
+  padding: clamp(22px, 4vw, 42px);
+}
+
+.eval-hero h1 {
+  font-size: clamp(32px, 5vw, 54px);
+  font-weight: 930;
+  letter-spacing: 0;
+  line-height: 1;
+  margin: 0;
+}
+
+.eval-hero p,
+.eval-message {
+  color: #344054;
+  line-height: 1.55;
+}
+
+.eval-tabs {
+  background: #ebe5d9;
+  border-radius: 8px;
+  display: grid;
+  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 14px 0;
+  padding: 4px;
+}
+
+.eval-tabs button {
+  background: transparent;
+  border: 0;
+  border-radius: 7px;
+  color: #4b5563;
+  font-weight: 850;
+  min-height: 42px;
+}
+
+.eval-tabs button.active {
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.eval-toolbar {
+  align-items: center;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(160px, 0.75fr) minmax(220px, 1fr) 42px;
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
+.eval-toolbar input,
+.eval-toolbar select,
+.eval-modal textarea {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  min-height: 42px;
+  outline: none;
+  padding: 0 12px;
+}
+
+.eval-modal textarea {
+  min-height: 180px;
+  padding-block: 10px;
+  resize: vertical;
+}
+
+.eval-settings-button {
+  background: #101827;
+  color: #ffffff;
+}
+
+.eval-card {
+  padding: 18px;
+}
+
+.eval-card-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.eval-card-heading h2 {
+  font-size: 28px;
+  font-weight: 900;
+  margin: 0;
+}
+
+.eval-card-heading > span {
+  background: #edf7f4;
+  border: 1px solid #c8e3dd;
+  border-radius: 999px;
+  color: #0f625f;
+  font-size: 12px;
+  font-weight: 850;
+  padding: 7px 10px;
+}
+
+.grade-list {
+  display: grid;
+  gap: 14px;
+}
+
+.grade-row {
+  background: #f7f3ea;
+  border: 1px solid #e2dacd;
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.grade-row > div {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.grade-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grade-row span {
+  color: var(--teal);
+  font-size: 24px;
+  font-weight: 950;
+}
+
+.grade-row input {
+  accent-color: var(--teal);
+  margin-top: 10px;
+  width: 100%;
+}
+
+.eval-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.eval-empty {
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  color: #7c2d12;
+  padding: 18px;
+  text-align: center;
+}
+
+.history-table {
+  border: 1px solid #e2dacd;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.history-head,
+.history-row {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 0.7fr 1fr 1.2fr 1.2fr 0.5fr;
+  min-width: 720px;
+  padding: 10px 12px;
+}
+
+.history-head {
+  background: #101827;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.history-row {
+  background: #ffffff;
+  border-top: 1px solid #e2dacd;
+  color: #344054;
+  font-size: 13px;
+}
+
+.history-row strong {
+  color: var(--teal);
+}
+
+.eval-clear {
+  margin-top: 14px;
+}
+
+.eval-message {
+  margin-top: 14px;
+  padding: 12px 14px;
+}
+
+.eval-loading {
+  margin: 20vh auto 0;
+  max-width: 360px;
+  padding: 24px;
+  text-align: center;
 }
 
 @theme inline {
@@ -1303,7 +1525,8 @@ button {
   }
 
   .home-page,
-  .maker-page {
+  .maker-page,
+  .eval-page {
     padding: 10px;
   }
 
@@ -1325,6 +1548,22 @@ button {
 
   .home-hero-panel {
     min-height: 220px;
+  }
+
+  .eval-toolbar,
+  .eval-card-heading,
+  .eval-actions {
+    align-items: stretch;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .eval-toolbar {
+    gap: 8px;
+  }
+
+  .eval-settings-button {
+    width: 100%;
   }
 }
 

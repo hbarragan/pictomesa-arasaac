@@ -1,4 +1,4 @@
-import { ArrowUpRight, Brush, Grid2X2, Library, Settings2 } from "lucide-react";
+import { ArrowUpRight, Brush, ClipboardCheck, Grid2X2, Library, Settings2 } from "lucide-react";
 import Link from "next/link";
 
 const tools = [
@@ -14,6 +14,13 @@ const tools = [
     icon: Brush,
     title: "Creador de pictos propios",
     text: "Monta una imagen, anade texto, ajusta marco y descarga un picto PNG para incorporarlo a tu biblioteca.",
+    status: "Nuevo",
+  },
+  {
+    href: "/herramientas/evaluacion",
+    icon: ClipboardCheck,
+    title: "Herramientas de evaluacion",
+    text: "Registra notas por clase y tarea, gestiona alumnos y descarga historiales en CSV para seguimiento docente.",
     status: "Nuevo",
   },
   {
@@ -36,6 +43,7 @@ export default function Home() {
         <div>
           <Link href="/herramientas/pictogramas">Pictogramas</Link>
           <Link href="/herramientas/creador-pictos">Crear picto</Link>
+          <Link href="/herramientas/evaluacion">Evaluacion</Link>
           <a href="https://amaretea.es/" target="_blank" rel="noreferrer">
             amaretea.es
           </a>
