@@ -10,6 +10,7 @@ import {
   MessageSquare,
   MousePointer2,
   Plus,
+  RotateCw,
   Shapes,
   Type,
   Volume2,
@@ -189,6 +190,13 @@ export function BoardmakerDesigner() {
     startObjectX: number;
     startObjectY: number;
   } | null>(null);
+  const [rotate, setRotate] = useState<{
+    centerX: number;
+    centerY: number;
+    id: string;
+    startAngle: number;
+    startRotation: number;
+  } | null>(null);
   const [template, setTemplate] = useState("blank");
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const [pendingObject, setPendingObject] = useState<Partial<DesignerObject> | null>(null);
@@ -298,6 +306,37 @@ export function BoardmakerDesigner() {
       window.removeEventListener("pointerup", onPointerUp);
     };
   }, [resize]);
+
+  useEffect(() => {
+    if (!rotate) {
+      return;
+    }
+
+    const onPointerMove = (event: globalThis.PointerEvent) => {
+      const currentAngle = Math.atan2(event.clientY - rotate.centerY, event.clientX - rotate.centerX);
+      const deltaDegrees = ((currentAngle - rotate.startAngle) * 180) / Math.PI;
+
+      setObjects((current) =>
+        current.map((object) =>
+          object.id === rotate.id
+            ? {
+                ...object,
+                rotation: Math.round(rotate.startRotation + deltaDegrees),
+              }
+            : object,
+        ),
+      );
+    };
+
+    const onPointerUp = () => setRotate(null);
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [rotate]);
 
   const updateObject = (id: string, patch: Partial<DesignerObject>) => {
     setObjects((current) => current.map((object) => (object.id === id ? { ...object, ...patch } : object)));
@@ -476,6 +515,7 @@ export function BoardmakerDesigner() {
     event.stopPropagation();
     setSelectedId(object.id);
     setDrag(null);
+    setRotate(null);
     setResize({
       handle,
       id: object.id,
@@ -486,6 +526,27 @@ export function BoardmakerDesigner() {
       startObjectX: object.x,
       startObjectY: object.y,
     });
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const startRotate = (event: PointerEvent<HTMLButtonElement>, object: DesignerObject) => {
+    event.stopPropagation();
+    setSelectedId(object.id);
+    setDrag(null);
+    setResize(null);
+
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const centerX = (rect?.left ?? 0) + object.x + object.w / 2;
+    const centerY = (rect?.top ?? 0) + object.y + object.h / 2;
+
+    setRotate({
+      centerX,
+      centerY,
+      id: object.id,
+      startAngle: Math.atan2(event.clientY - centerY, event.clientX - centerX),
+      startRotation: object.rotation,
+    });
+
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
@@ -612,7 +673,7 @@ export function BoardmakerDesigner() {
                   }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
-                    if (resize) {
+                    if (resize || rotate) {
                       return;
                     }
                     setSelectedId(object.id);
@@ -636,6 +697,7 @@ export function BoardmakerDesigner() {
                   onPointerUp={() => {
                     setDrag(null);
                     setResize(null);
+                    setRotate(null);
                   }}
                   onDoubleClick={() => {
                     if (object.speak && object.text && "speechSynthesis" in window) {
@@ -656,6 +718,14 @@ export function BoardmakerDesigner() {
                         />
                       ))
                     : null}
+                  <button
+                    aria-label="Rotar objeto"
+                    className="rotate-handle"
+                    onPointerDown={(event) => startRotate(event, object)}
+                    onPointerUp={() => setRotate(null)}
+                  >
+                    <RotateCw size={14} />
+                  </button>
                 </div>
               );
             })}
