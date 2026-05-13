@@ -20,6 +20,8 @@ type MakerLayer = {
   id: string;
   name: string;
   src: string;
+  baseWidth: number;
+  baseHeight: number;
   width: number;
   height: number;
   x: number;
@@ -70,9 +72,33 @@ export function PictoMaker() {
     () => layers.find((layer) => layer.id === selectedLayerId) ?? null,
     [layers, selectedLayerId],
   );
+  const selectedLayerScale = useMemo(() => {
+    if (!selectedLayer || selectedLayer.baseWidth <= 0) {
+      return 100;
+    }
+
+    return Math.round((selectedLayer.width / selectedLayer.baseWidth) * 100);
+  }, [selectedLayer]);
 
   const updateLayer = (id: string, patch: Partial<MakerLayer>) => {
     setLayers((current) => current.map((layer) => (layer.id === id ? { ...layer, ...patch } : layer)));
+  };
+
+  const resizeLayerToScale = (id: string, scalePercent: number) => {
+    setLayers((current) =>
+      current.map((layer) => {
+        if (layer.id !== id) {
+          return layer;
+        }
+
+        const nextScale = Math.min(320, Math.max(20, scalePercent));
+        return {
+          ...layer,
+          width: (layer.baseWidth * nextScale) / 100,
+          height: (layer.baseHeight * nextScale) / 100,
+        };
+      }),
+    );
   };
 
   const renderCanvas = () => {
@@ -172,6 +198,8 @@ export function PictoMaker() {
         id,
         name: file.name.replace(/\.[^.]+$/, ""),
         src,
+        baseWidth: width,
+        baseHeight: height,
         width,
         height,
         x: size / 2 + index * 26 - files.length * 13,
@@ -344,6 +372,18 @@ export function PictoMaker() {
               />
             </label>
             <label>
+              Tamano
+              <input
+                type="number"
+                min={20}
+                max={320}
+                step={10}
+                value={selectedLayerScale}
+                onChange={(event) => selectedLayer && resizeLayerToScale(selectedLayer.id, Number(event.target.value))}
+                disabled={!selectedLayer}
+              />
+            </label>
+            <label>
               Pincel
               <input type="number" min={2} max={50} value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} />
             </label>
@@ -385,6 +425,20 @@ export function PictoMaker() {
               <p className="muted">Aun no has subido imagenes.</p>
             )}
             <div className="maker-actions compact">
+              <button
+                className="command-button secondary compact"
+                onClick={() => selectedLayer && resizeLayerToScale(selectedLayer.id, selectedLayerScale - 10)}
+                disabled={!selectedLayer}
+              >
+                Mas pequena
+              </button>
+              <button
+                className="command-button secondary compact"
+                onClick={() => selectedLayer && resizeLayerToScale(selectedLayer.id, selectedLayerScale + 10)}
+                disabled={!selectedLayer}
+              >
+                Mas grande
+              </button>
               <button
                 className="command-button secondary compact"
                 onClick={() => {
