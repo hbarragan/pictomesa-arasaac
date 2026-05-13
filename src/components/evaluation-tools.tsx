@@ -3,6 +3,7 @@
 import { ArrowLeft, Download, Plus, Save, Settings, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AppNav } from "@/components/app-nav";
 
 type Classes = Record<string, string[]>;
 
@@ -346,17 +347,7 @@ export function EvaluationTools() {
 
   return (
     <main className="eval-page">
-      <nav className="home-nav maker-nav" aria-label="Navegacion evaluacion">
-        <Link className="home-brand" href="/">
-          <span>Amaretea</span>
-          <small>Herramientas de evaluacion</small>
-        </Link>
-        <div>
-          <Link href="/herramientas/pictogramas">Pictogramas</Link>
-          <Link href="/herramientas/creador-pictos">Crear picto</Link>
-          <a href="https://amaretea.es/" target="_blank" rel="noreferrer">amaretea.es</a>
-        </div>
-      </nav>
+      <AppNav current="evaluacion" subtitle="Herramientas de evaluacion" />
 
       <section className="eval-shell">
         <header className="eval-hero">

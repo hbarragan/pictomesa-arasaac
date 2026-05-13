@@ -3,6 +3,7 @@
 import { ArrowLeft, Download, Eraser, FileUp, Layers3, Move, Paintbrush, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { ChangeEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AppNav } from "@/components/app-nav";
 
 const LOCAL_LIBRARY_KEY = "pictomesa-local-library-v1";
 
@@ -284,16 +285,7 @@ export function PictoMaker() {
 
   return (
     <main className="maker-page">
-      <nav className="home-nav maker-nav" aria-label="Navegacion creador">
-        <Link className="home-brand" href="/">
-          <span>Amaretea</span>
-          <small>Creador de pictos</small>
-        </Link>
-        <div>
-          <Link href="/herramientas/pictogramas">Tableros</Link>
-          <a href="https://amaretea.es/" target="_blank" rel="noreferrer">amaretea.es</a>
-        </div>
-      </nav>
+      <AppNav current="creador" subtitle="Creador de pictos" />
 
       <section className="maker-shell">
         <aside className="maker-panel">

@@ -1,3 +1,4 @@
+import { AppNav } from "@/components/app-nav";
 import { ArrowUpRight, Brush, ClipboardCheck, Grid2X2, LayoutDashboard, Library, Settings2 } from "lucide-react";
 import Link from "next/link";
 
@@ -12,7 +13,7 @@ const tools = [
   {
     href: "/herramientas/disenador",
     icon: LayoutDashboard,
-    title: "Diseñador tipo Boardmaker",
+    title: "Disenador tipo Boardmaker",
     text: "Lienzo libre con plantillas, objetos, simbolos, textos, formas, botones con voz y exportacion imprimible.",
     status: "Nuevo",
   },
@@ -42,21 +43,7 @@ const tools = [
 export default function Home() {
   return (
     <main className="home-page">
-      <nav className="home-nav" aria-label="Navegacion principal">
-        <Link className="home-brand" href="/">
-          <span>Amaretea</span>
-          <small>Herramientas educativas</small>
-        </Link>
-        <div>
-          <Link href="/herramientas/pictogramas">Pictogramas</Link>
-          <Link href="/herramientas/disenador">Diseñador</Link>
-          <Link href="/herramientas/creador-pictos">Crear picto</Link>
-          <Link href="/herramientas/evaluacion">Evaluacion</Link>
-          <a href="https://amaretea.es/" target="_blank" rel="noreferrer">
-            amaretea.es
-          </a>
-        </div>
-      </nav>
+      <AppNav current="home" subtitle="Herramientas educativas" />
 
       <section className="home-hero">
         <div className="home-hero-copy">

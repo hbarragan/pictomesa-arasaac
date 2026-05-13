@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AppNav } from "@/components/app-nav";
 
 type Language = "es" | "en" | "fr" | "pt" | "ca" | "it" | "de";
 type SearchMode = "search" | "bestsearch" | "new";
@@ -957,6 +958,7 @@ export function PictoStudio() {
 
   return (
     <main className="min-h-screen bg-[#f8f6f1] text-slate-950">
+      <AppNav current="pictogramas" subtitle="Tableros de pictogramas" />
       <section className="studio-shell">
         <aside className="studio-rail">
           <div>

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ChangeEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { AppNav } from "@/components/app-nav";
 
 type DesignerTool = "select" | "symbol" | "text" | "shape" | "message";
 type DesignerObjectKind = "symbol" | "text" | "shape" | "message";
@@ -722,17 +723,7 @@ export function BoardmakerDesigner() {
 
   return (
     <main className="designer-page">
-      <nav className="home-nav maker-nav" aria-label="Navegacion disenador">
-        <Link className="home-brand" href="/">
-          <span>Amaretea</span>
-          <small>Disenador tipo Boardmaker</small>
-        </Link>
-        <div>
-          <Link href="/herramientas/pictogramas">Tableros</Link>
-          <Link href="/herramientas/creador-pictos">Crear picto</Link>
-          <Link href="/herramientas/evaluacion">Evaluacion</Link>
-        </div>
-      </nav>
+      <AppNav current="disenador" subtitle="Disenador tipo Boardmaker" />
 
       <section className={`designer-shell ${expanded ? "expanded" : ""}`}>
         <aside className={`designer-panel ${expanded ? "collapsed" : ""}`} onPointerDown={(event) => {
