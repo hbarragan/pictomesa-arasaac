@@ -90,6 +90,18 @@ function displayFontSize(object: DesignerObject) {
   return Math.max(object.fontSize, Math.min(fittedByWidth, fittedByHeight));
 }
 
+function asciiArrowShape(symbol: string) {
+  const shapes: Record<string, string> = {
+    "->": "ascii-arrow-right",
+    "<-": "ascii-arrow-left",
+    "<->": "ascii-arrow-double",
+    "^": "ascii-arrow-up",
+    v: "ascii-arrow-down",
+  };
+
+  return shapes[symbol];
+}
+
 const templateObjects: Record<string, DesignerObject[]> = {
   blank: [],
   communication: Array.from({ length: 12 }, (_, index) => ({
@@ -289,13 +301,16 @@ export function BoardmakerDesigner() {
   };
 
   const chooseAsciiSymbol = (symbol: string) => {
+    const shapeType = asciiArrowShape(symbol);
+
     setPendingObject({
       kind: "symbol",
       src: undefined,
       text: symbol,
       bg: "transparent",
-      border: "transparent",
+      border: shapeType ? "#111827" : "transparent",
       radius: 0,
+      shapeType,
       fontSize: 44,
       w: 96,
       h: 72,
@@ -545,72 +560,76 @@ export function BoardmakerDesigner() {
 
         <section className="designer-workspace">
           <div ref={canvasRef} className="designer-canvas" onPointerDown={onCanvasPointerDown}>
-            {objects.map((object) => (
-              <div
-                key={object.id}
-                className={`designer-object ${selectedId === object.id ? "selected" : ""} ${object.kind} shape-${object.shapeType ?? "plain"}`}
-                style={{
-                  left: object.x,
-                  top: object.y,
-                  width: object.w,
-                  height: object.h,
-                  backgroundColor: object.bg,
-                  borderColor: object.border,
-                  borderRadius: object.radius,
-                  color:
-                    object.shapeType?.includes("arrow") || object.shapeType?.includes("curve") || object.shapeType === "line"
-                      ? object.border
-                      : undefined,
-                  fontSize: displayFontSize(object),
-                }}
-                onPointerDown={(event) => {
-                  event.stopPropagation();
-                  if (resize) {
-                    return;
-                  }
-                  setSelectedId(object.id);
-                  const rect = canvasRef.current?.getBoundingClientRect();
-                  setDrag({
-                    id: object.id,
-                    dx: event.clientX - (rect?.left ?? 0) - object.x,
-                    dy: event.clientY - (rect?.top ?? 0) - object.y,
-                  });
-                  event.currentTarget.setPointerCapture(event.pointerId);
-                }}
-                onPointerMove={(event) => {
-                  if (drag?.id === object.id) {
+            {objects.map((object) => {
+              const isStretchArrow = Boolean(object.shapeType?.startsWith("ascii-arrow"));
+
+              return (
+                <div
+                  key={object.id}
+                  className={`designer-object ${selectedId === object.id ? "selected" : ""} ${object.kind} shape-${object.shapeType ?? "plain"}`}
+                  style={{
+                    left: object.x,
+                    top: object.y,
+                    width: object.w,
+                    height: object.h,
+                    backgroundColor: object.bg,
+                    borderColor: object.border,
+                    borderRadius: object.radius,
+                    color:
+                      object.shapeType?.includes("arrow") || object.shapeType?.includes("curve") || object.shapeType === "line"
+                        ? object.border
+                        : undefined,
+                    fontSize: displayFontSize(object),
+                  }}
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    if (resize) {
+                      return;
+                    }
+                    setSelectedId(object.id);
                     const rect = canvasRef.current?.getBoundingClientRect();
-                    updateObject(object.id, {
-                      x: Math.max(0, event.clientX - (rect?.left ?? 0) - drag.dx),
-                      y: Math.max(0, event.clientY - (rect?.top ?? 0) - drag.dy),
+                    setDrag({
+                      id: object.id,
+                      dx: event.clientX - (rect?.left ?? 0) - object.x,
+                      dy: event.clientY - (rect?.top ?? 0) - object.y,
                     });
-                  }
-                }}
-                onPointerUp={() => {
-                  setDrag(null);
-                  setResize(null);
-                }}
-                onDoubleClick={() => {
-                  if (object.speak && object.text && "speechSynthesis" in window) {
-                    window.speechSynthesis.speak(new SpeechSynthesisUtterance(object.text));
-                  }
-                }}
-              >
-                {object.src ? <img src={object.src} alt={object.text} /> : null}
-                {object.text ? <span>{object.text}</span> : null}
-                {selectedId === object.id
-                  ? RESIZE_HANDLES.map((handle) => (
-                      <button
-                        key={handle}
-                        aria-label={`Redimensionar ${handle}`}
-                        className={`resize-handle ${handle}`}
-                        onPointerDown={(event) => startResize(event, object, handle)}
-                        onPointerUp={() => setResize(null)}
-                      />
-                    ))
-                  : null}
-              </div>
-            ))}
+                    event.currentTarget.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={(event) => {
+                    if (drag?.id === object.id) {
+                      const rect = canvasRef.current?.getBoundingClientRect();
+                      updateObject(object.id, {
+                        x: Math.max(0, event.clientX - (rect?.left ?? 0) - drag.dx),
+                        y: Math.max(0, event.clientY - (rect?.top ?? 0) - drag.dy),
+                      });
+                    }
+                  }}
+                  onPointerUp={() => {
+                    setDrag(null);
+                    setResize(null);
+                  }}
+                  onDoubleClick={() => {
+                    if (object.speak && object.text && "speechSynthesis" in window) {
+                      window.speechSynthesis.speak(new SpeechSynthesisUtterance(object.text));
+                    }
+                  }}
+                >
+                  {object.src ? <img src={object.src} alt={object.text} /> : null}
+                  {object.text && !isStretchArrow ? <span>{object.text}</span> : null}
+                  {selectedId === object.id
+                    ? RESIZE_HANDLES.map((handle) => (
+                        <button
+                          key={handle}
+                          aria-label={`Redimensionar ${handle}`}
+                          className={`resize-handle ${handle}`}
+                          onPointerDown={(event) => startResize(event, object, handle)}
+                          onPointerUp={() => setResize(null)}
+                        />
+                      ))
+                    : null}
+                </div>
+              );
+            })}
           </div>
         </section>
 
