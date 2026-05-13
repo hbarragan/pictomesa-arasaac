@@ -1,18 +1,29 @@
 "use client";
 
-import { ArrowLeft, Download, Eraser, FileUp, Paintbrush, Save } from "lucide-react";
+import { ArrowLeft, Download, Eraser, FileUp, Layers3, Move, Paintbrush, Save, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { ChangeEvent, PointerEvent, useEffect, useRef, useState } from "react";
+import { ChangeEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 
 const LOCAL_LIBRARY_KEY = "pictomesa-local-library-v1";
 
-type DrawMode = "paint" | "erase";
+type DrawMode = "move" | "paint" | "erase";
 
 type LocalPicto = {
   id: string;
   name: string;
   path: string;
   src: string;
+};
+
+type MakerLayer = {
+  id: string;
+  name: string;
+  src: string;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+  rotation: number;
 };
 
 function uid(prefix: string) {
@@ -37,19 +48,31 @@ function fileToDataUrl(file: File) {
 
 export function PictoMaker() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageRef = useRef<HTMLImageElement | null>(null);
+  const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
+  const inkCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
+  const dragLayerRef = useRef<{ dx: number; dy: number; id: string } | null>(null);
   const [name, setName] = useState("Picto propio");
   const [text, setText] = useState("AYUDA");
   const [bg, setBg] = useState("#ffffff");
   const [borderColor, setBorderColor] = useState("#111827");
   const [borderWidth, setBorderWidth] = useState(4);
   const [radius, setRadius] = useState(0);
-  const [rotation, setRotation] = useState(0);
-  const [brushColor, setBrushColor] = useState("#f26d5b");
+  const [brushColor, setBrushColor] = useState("#111827");
   const [brushSize, setBrushSize] = useState(12);
-  const [drawMode, setDrawMode] = useState<DrawMode>("paint");
-  const [message, setMessage] = useState("Sube una imagen o dibuja directamente sobre el lienzo.");
+  const [drawMode, setDrawMode] = useState<DrawMode>("move");
+  const [layers, setLayers] = useState<MakerLayer[]>([]);
+  const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [message, setMessage] = useState("Sube una o varias imagenes, muevelas y dibuja solo cuando lo necesites.");
+
+  const selectedLayer = useMemo(
+    () => layers.find((layer) => layer.id === selectedLayerId) ?? null,
+    [layers, selectedLayerId],
+  );
+
+  const updateLayer = (id: string, patch: Partial<MakerLayer>) => {
+    setLayers((current) => current.map((layer) => (layer.id === id ? { ...layer, ...patch } : layer)));
+  };
 
   const renderCanvas = () => {
     const canvas = canvasRef.current;
@@ -64,18 +87,32 @@ export function PictoMaker() {
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, size, size);
 
-    ctx.save();
-    ctx.translate(size / 2, size / 2);
-    ctx.rotate((rotation * Math.PI) / 180);
-    if (imageRef.current) {
-      const image = imageRef.current;
-      const imageRatio = image.width / image.height;
-      const box = size * 0.68;
-      const drawWidth = imageRatio >= 1 ? box : box * imageRatio;
-      const drawHeight = imageRatio >= 1 ? box / imageRatio : box;
-      ctx.drawImage(image, -drawWidth / 2, -drawHeight / 2 - 18, drawWidth, drawHeight);
+    layers.forEach((layer) => {
+      const image = imageCacheRef.current[layer.id];
+
+      if (!image) {
+        return;
+      }
+
+      ctx.save();
+      ctx.translate(layer.x, layer.y);
+      ctx.rotate((layer.rotation * Math.PI) / 180);
+      ctx.drawImage(image, -layer.width / 2, -layer.height / 2, layer.width, layer.height);
+
+      if (layer.id === selectedLayerId) {
+        ctx.strokeStyle = "#117c7a";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([12, 8]);
+        ctx.strokeRect(-layer.width / 2, -layer.height / 2, layer.width, layer.height);
+        ctx.setLineDash([]);
+      }
+
+      ctx.restore();
+    });
+
+    if (inkCanvasRef.current) {
+      ctx.drawImage(inkCanvasRef.current, 0, 0, size, size);
     }
-    ctx.restore();
 
     ctx.fillStyle = "#111827";
     ctx.font = "bold 54px Arial, sans-serif";
@@ -99,25 +136,88 @@ export function PictoMaker() {
   useEffect(() => {
     renderCanvas();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bg, borderColor, borderWidth, radius, rotation, text]);
+  }, [bg, borderColor, borderWidth, layers, radius, selectedLayerId, text]);
 
   const loadImage = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files ?? []);
 
-    if (!file) {
+    if (files.length === 0) {
+      event.target.value = "";
+      setMessage("Seleccion de imagen cancelada.");
       return;
     }
 
-    const dataUrl = await fileToDataUrl(file);
-    const image = new Image();
-    image.onload = () => {
-      imageRef.current = image;
-      setName(file.name.replace(/\.[^.]+$/, ""));
-      renderCanvas();
-      setMessage("Imagen cargada. Puedes pintar encima, borrar trazos, girar y descargar.");
-    };
-    image.src = dataUrl;
+    const canvas = canvasRef.current;
+    const size = canvas?.width ?? 900;
+    const nextLayers: MakerLayer[] = [];
+
+    for (const [index, file] of files.entries()) {
+      const src = await fileToDataUrl(file);
+      const image = new Image();
+
+      await new Promise<void>((resolve) => {
+        image.onload = () => resolve();
+        image.src = src;
+      });
+
+      const id = uid("layer");
+      imageCacheRef.current[id] = image;
+      const imageRatio = image.width / image.height;
+      const box = size * 0.36;
+      const width = imageRatio >= 1 ? box : box * imageRatio;
+      const height = imageRatio >= 1 ? box / imageRatio : box;
+
+      nextLayers.push({
+        id,
+        name: file.name.replace(/\.[^.]+$/, ""),
+        src,
+        width,
+        height,
+        x: size / 2 + index * 26 - files.length * 13,
+        y: size / 2 - 36 + index * 26,
+        rotation: 0,
+      });
+    }
+
+    setLayers((current) => [...current, ...nextLayers]);
+    setSelectedLayerId(nextLayers.at(-1)?.id ?? null);
+    if (files.length === 1) {
+      setName(nextLayers[0]?.name ?? name);
+    } else {
+      setName("Montaje pictos");
+    }
+    setDrawMode("move");
+    setMessage(`${files.length} imagen${files.length === 1 ? "" : "es"} cargada${files.length === 1 ? "" : "s"}. Puedes moverlas, girarlas y dibujar encima.`);
     event.target.value = "";
+  };
+
+  const canvasPoint = (event: PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return null;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: ((event.clientX - rect.left) / rect.width) * canvas.width,
+      y: ((event.clientY - rect.top) / rect.height) * canvas.height,
+    };
+  };
+
+  const hitLayer = (x: number, y: number) => {
+    for (let index = layers.length - 1; index >= 0; index -= 1) {
+      const layer = layers[index];
+      if (
+        x >= layer.x - layer.width / 2 &&
+        x <= layer.x + layer.width / 2 &&
+        y >= layer.y - layer.height / 2 &&
+        y <= layer.y + layer.height / 2
+      ) {
+        return layer;
+      }
+    }
+
+    return null;
   };
 
   const drawAt = (event: PointerEvent<HTMLCanvasElement>) => {
@@ -128,16 +228,30 @@ export function PictoMaker() {
       return;
     }
 
-    const rect = canvas.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * canvas.width;
-    const y = ((event.clientY - rect.top) / rect.height) * canvas.height;
-    ctx.save();
-    ctx.globalCompositeOperation = drawMode === "erase" ? "destination-out" : "source-over";
-    ctx.fillStyle = drawMode === "erase" ? "#000000" : brushColor;
-    ctx.beginPath();
-    ctx.arc(x, y, brushSize, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+    if (!inkCanvasRef.current) {
+      inkCanvasRef.current = document.createElement("canvas");
+      inkCanvasRef.current.width = canvas.width;
+      inkCanvasRef.current.height = canvas.height;
+    }
+
+    const inkContext = inkCanvasRef.current.getContext("2d");
+    if (!inkContext) {
+      return;
+    }
+
+    const point = canvasPoint(event);
+    if (!point) {
+      return;
+    }
+
+    inkContext.save();
+    inkContext.globalCompositeOperation = drawMode === "erase" ? "destination-out" : "source-over";
+    inkContext.fillStyle = drawMode === "erase" ? "#000000" : brushColor;
+    inkContext.beginPath();
+    inkContext.arc(point.x, point.y, brushSize, 0, Math.PI * 2);
+    inkContext.fill();
+    inkContext.restore();
+    renderCanvas();
   };
 
   const getPng = () => {
@@ -190,13 +304,13 @@ export function PictoMaker() {
           <p className="eyebrow">Picto propio</p>
           <h1>Montador rapido de pictogramas</h1>
           <p>
-            Sube una imagen, anade texto, pinta encima, borra trazos y descarga un PNG listo para usar en tus tableros.
+            Sube una o varias imagenes, muevelas en el lienzo, anade texto, pinta encima y descarga un PNG listo para usar.
           </p>
 
           <label className="file-drop">
             <FileUp size={18} />
-            Subir PNG/JPG
-            <input className="sr-only" type="file" accept="image/*" onChange={loadImage} />
+            Subir una o varias imagenes
+            <input className="sr-only" type="file" accept="image/*" multiple onChange={loadImage} />
           </label>
 
           <div className="control-group stacked">
@@ -227,7 +341,15 @@ export function PictoMaker() {
             </label>
             <label>
               Giro
-              <input type="number" step={90} min={-180} max={180} value={rotation} onChange={(event) => setRotation(Number(event.target.value))} />
+              <input
+                type="number"
+                step={15}
+                min={-180}
+                max={180}
+                value={selectedLayer?.rotation ?? 0}
+                onChange={(event) => selectedLayer && updateLayer(selectedLayer.id, { rotation: Number(event.target.value) })}
+                disabled={!selectedLayer}
+              />
             </label>
             <label>
               Pincel
@@ -236,6 +358,10 @@ export function PictoMaker() {
           </div>
 
           <div className="segmented full">
+            <button className={drawMode === "move" ? "active" : ""} onClick={() => setDrawMode("move")}>
+              <Move size={15} />
+              Mover
+            </button>
             <button className={drawMode === "paint" ? "active" : ""} onClick={() => setDrawMode("paint")}>
               <Paintbrush size={15} />
               Pintar
@@ -244,6 +370,68 @@ export function PictoMaker() {
               <Eraser size={15} />
               Borrar
             </button>
+          </div>
+
+          <div className="maker-layer-panel">
+            <div className="designer-title">
+              <Layers3 size={16} />
+              Imagenes subidas
+            </div>
+            {layers.length > 0 ? (
+              <div className="maker-layer-list">
+                {layers.slice().reverse().map((layer) => (
+                  <button
+                    key={layer.id}
+                    className={`maker-layer-item ${selectedLayerId === layer.id ? "active" : ""}`}
+                    onClick={() => setSelectedLayerId(layer.id)}
+                  >
+                    {layer.name}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="muted">Aun no has subido imagenes.</p>
+            )}
+            <div className="maker-actions compact">
+              <button
+                className="command-button secondary compact"
+                onClick={() => {
+                  if (!selectedLayer) {
+                    return;
+                  }
+                  setLayers((current) => [...current.filter((layer) => layer.id !== selectedLayer.id), selectedLayer]);
+                }}
+                disabled={!selectedLayer}
+              >
+                Delante
+              </button>
+              <button
+                className="command-button secondary compact"
+                onClick={() => {
+                  if (!selectedLayer) {
+                    return;
+                  }
+                  setLayers((current) => [selectedLayer, ...current.filter((layer) => layer.id !== selectedLayer.id)]);
+                }}
+                disabled={!selectedLayer}
+              >
+                Detras
+              </button>
+              <button
+                className="command-button danger compact"
+                onClick={() => {
+                  if (!selectedLayer) {
+                    return;
+                  }
+                  setLayers((current) => current.filter((layer) => layer.id !== selectedLayer.id));
+                  setSelectedLayerId(null);
+                }}
+                disabled={!selectedLayer}
+              >
+                <Trash2 size={15} />
+                Quitar
+              </button>
+            </div>
           </div>
 
           <label className="brush-color">
@@ -269,17 +457,52 @@ export function PictoMaker() {
             ref={canvasRef}
             width={900}
             height={900}
+            style={{ cursor: drawMode === "move" ? "grab" : drawMode === "erase" ? "cell" : "crosshair" }}
             onPointerDown={(event) => {
-              drawingRef.current = true;
               event.currentTarget.setPointerCapture(event.pointerId);
+              const point = canvasPoint(event);
+              if (!point) {
+                return;
+              }
+
+              if (drawMode === "move") {
+                const hit = hitLayer(point.x, point.y);
+                setSelectedLayerId(hit?.id ?? null);
+                if (hit) {
+                  dragLayerRef.current = {
+                    dx: point.x - hit.x,
+                    dy: point.y - hit.y,
+                    id: hit.id,
+                  };
+                }
+                return;
+              }
+
+              drawingRef.current = true;
               drawAt(event);
             }}
-            onPointerMove={drawAt}
+            onPointerMove={(event) => {
+              if (drawMode === "move") {
+                const point = canvasPoint(event);
+                if (!point || !dragLayerRef.current) {
+                  return;
+                }
+                updateLayer(dragLayerRef.current.id, {
+                  x: point.x - dragLayerRef.current.dx,
+                  y: point.y - dragLayerRef.current.dy,
+                });
+                return;
+              }
+
+              drawAt(event);
+            }}
             onPointerUp={() => {
               drawingRef.current = false;
+              dragLayerRef.current = null;
             }}
             onPointerCancel={() => {
               drawingRef.current = false;
+              dragLayerRef.current = null;
             }}
           />
         </section>

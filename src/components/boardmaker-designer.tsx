@@ -578,7 +578,12 @@ export function BoardmakerDesigner() {
   };
 
   const onCanvasPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    if (event.target !== event.currentTarget || tool === "select") {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    if (tool === "select") {
+      setSelectedId(null);
       return;
     }
 
@@ -669,8 +674,11 @@ export function BoardmakerDesigner() {
     document.head.appendChild(style);
     const cleanup = () => style.remove();
     window.addEventListener("afterprint", cleanup, { once: true });
-    window.print();
-    window.setTimeout(cleanup, 1200);
+    setSelectedId(null);
+    window.requestAnimationFrame(() => {
+      window.print();
+      window.setTimeout(cleanup, 1200);
+    });
   };
 
   const startResize = (event: PointerEvent<HTMLButtonElement>, object: DesignerObject, handle: ResizeHandle) => {
@@ -727,7 +735,11 @@ export function BoardmakerDesigner() {
       </nav>
 
       <section className={`designer-shell ${expanded ? "expanded" : ""}`}>
-        <aside className={`designer-panel ${expanded ? "collapsed" : ""}`}>
+        <aside className={`designer-panel ${expanded ? "collapsed" : ""}`} onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setSelectedId(null);
+          }
+        }}>
           {expanded ? (
             <button className="designer-sidebar-toggle" onClick={() => setExpanded(false)}>
               Herr.
@@ -924,7 +936,11 @@ export function BoardmakerDesigner() {
           </div>
         </section>
 
-        <aside className={`designer-properties ${expanded ? "collapsed" : ""}`}>
+        <aside className={`designer-properties ${expanded ? "collapsed" : ""}`} onPointerDown={(event) => {
+          if (event.target === event.currentTarget) {
+            setSelectedId(null);
+          }
+        }}>
           {expanded ? (
             <button className="designer-sidebar-toggle" onClick={() => setExpanded(false)}>
               Props

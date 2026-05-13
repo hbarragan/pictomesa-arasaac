@@ -26,8 +26,8 @@ const tools = [
   {
     href: "/herramientas/evaluacion",
     icon: ClipboardCheck,
-    title: "Herramientas de evaluacion",
-    text: "Registra notas por clase y tarea, gestiona alumnos y descarga historiales en CSV para seguimiento docente.",
+    title: "Evaluador educacion",
+    text: "Combina evaluacion tradicional con notas y evaluacion especial con criterios, apoyos y registros exportables.",
     status: "Nuevo",
   },
   {
