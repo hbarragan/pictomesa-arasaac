@@ -35,6 +35,7 @@ type DesignerObject = {
   border: string;
   radius: number;
   fontSize: number;
+  rotation: number;
   speak?: boolean;
 };
 
@@ -102,6 +103,26 @@ function asciiArrowShape(symbol: string) {
   return shapes[symbol];
 }
 
+function normalizeDesignerObject(object: Partial<DesignerObject>) {
+  return {
+    id: object.id ?? uid("obj"),
+    kind: object.kind ?? "symbol",
+    x: object.x ?? 80,
+    y: object.y ?? 80,
+    w: object.w ?? 150,
+    h: object.h ?? 130,
+    text: object.text ?? "",
+    src: object.src,
+    shapeType: object.shapeType,
+    bg: object.bg ?? "#ffffff",
+    border: object.border ?? "#111827",
+    radius: object.radius ?? 8,
+    fontSize: object.fontSize ?? 22,
+    rotation: object.rotation ?? 0,
+    speak: object.speak,
+  } satisfies DesignerObject;
+}
+
 const templateObjects: Record<string, DesignerObject[]> = {
   blank: [],
   communication: Array.from({ length: 12 }, (_, index) => ({
@@ -116,6 +137,7 @@ const templateObjects: Record<string, DesignerObject[]> = {
     border: "#111827",
     radius: 10,
     fontSize: 20,
+    rotation: 0,
     speak: true,
   })),
   firstThen: [
@@ -131,6 +153,7 @@ const templateObjects: Record<string, DesignerObject[]> = {
       border: "#111827",
       radius: 8,
       fontSize: 28,
+      rotation: 0,
     },
     {
       id: uid("obj"),
@@ -144,6 +167,7 @@ const templateObjects: Record<string, DesignerObject[]> = {
       border: "#111827",
       radius: 8,
       fontSize: 28,
+      rotation: 0,
     },
   ],
 };
@@ -179,7 +203,7 @@ export function BoardmakerDesigner() {
       if (cached) {
         try {
           const parsed = JSON.parse(cached) as DesignerObject[];
-          setObjects(parsed);
+          setObjects(parsed.map((object) => normalizeDesignerObject(object)));
         } catch {
           setMessage("No pude recuperar el disenador guardado.");
         }
@@ -280,7 +304,7 @@ export function BoardmakerDesigner() {
   };
 
   const addObject = (kind: DesignerObjectKind, patch: Partial<DesignerObject> = {}) => {
-    const object: DesignerObject = {
+    const object = normalizeDesignerObject({
       id: uid("obj"),
       kind,
       x: 80,
@@ -292,9 +316,10 @@ export function BoardmakerDesigner() {
       border: kind === "text" ? "transparent" : "#111827",
       radius: kind === "text" ? 0 : kind === "shape" ? 999 : 8,
       fontSize: 22,
+      rotation: 0,
       speak: kind === "symbol" || kind === "text" || kind === "message",
       ...patch,
-    };
+    });
 
     setObjects((current) => [...current, object]);
     setSelectedId(object.id);
@@ -314,6 +339,7 @@ export function BoardmakerDesigner() {
       fontSize: 44,
       w: 96,
       h: 72,
+      rotation: 0,
       speak: false,
     });
     setPickerMode(null);
@@ -414,6 +440,7 @@ export function BoardmakerDesigner() {
       border: "transparent",
       radius: 0,
       fontSize: 28,
+      rotation: 0,
       speak: false,
     }));
 
@@ -428,7 +455,7 @@ export function BoardmakerDesigner() {
     }
     const imported = JSON.parse(await file.text()) as DesignerObject[];
     if (Array.isArray(imported)) {
-      setObjects(imported);
+      setObjects(imported.map((object) => normalizeDesignerObject(object)));
       setMessage("Disenador importado.");
     }
     event.target.value = "";
@@ -523,7 +550,7 @@ export function BoardmakerDesigner() {
               onChange={(event) => {
                 const next = event.target.value;
                 setTemplate(next);
-                setObjects(templateObjects[next]?.map((object) => ({ ...object, id: uid("obj") })) ?? []);
+                setObjects(templateObjects[next]?.map((object) => normalizeDesignerObject({ ...object, id: uid("obj") })) ?? []);
               }}
             >
               <option value="blank">Lienzo en blanco</option>
@@ -576,10 +603,12 @@ export function BoardmakerDesigner() {
                     borderColor: object.border,
                     borderRadius: object.radius,
                     color:
-                      object.shapeType?.includes("arrow") || object.shapeType?.includes("curve") || object.shapeType === "line"
+                    object.shapeType?.includes("arrow") || object.shapeType?.includes("curve") || object.shapeType === "line"
                         ? object.border
                         : undefined,
                     fontSize: displayFontSize(object),
+                    transform: `rotate(${object.rotation}deg)`,
+                    transformOrigin: "center center",
                   }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
@@ -648,6 +677,7 @@ export function BoardmakerDesigner() {
                 <label>Alto<input type="number" value={Math.round(selected.h)} onChange={(event) => updateObject(selected.id, { h: Number(event.target.value) })} /></label>
                 <label>Texto<input type="number" value={selected.fontSize} onChange={(event) => updateObject(selected.id, { fontSize: Number(event.target.value) })} /></label>
                 <label>Radio<input type="number" value={selected.radius} onChange={(event) => updateObject(selected.id, { radius: Number(event.target.value) })} /></label>
+                <label>Rotacion<input type="number" value={selected.rotation} onChange={(event) => updateObject(selected.id, { rotation: Number(event.target.value) })} /></label>
               </div>
               <div className="designer-prop-grid">
                 <label>Fondo<input type="color" value={selected.bg} onChange={(event) => updateObject(selected.id, { bg: event.target.value })} /></label>
@@ -661,6 +691,12 @@ export function BoardmakerDesigner() {
               <div className="designer-actions">
                 <button className="command-button secondary compact" onClick={() => void symbolateSelected()}>
                   Symbolate
+                </button>
+                <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation - 15 })}>
+                  Girar -15
+                </button>
+                <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation + 15 })}>
+                  Girar +15
                 </button>
                 <button
                   className="command-button secondary compact"
