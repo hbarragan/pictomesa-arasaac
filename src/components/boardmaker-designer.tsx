@@ -11,6 +11,7 @@ import {
   MousePointer2,
   Plus,
   RotateCw,
+  Search,
   Shapes,
   Type,
   Volume2,
@@ -20,7 +21,23 @@ import { ChangeEvent, PointerEvent, useEffect, useMemo, useRef, useState } from 
 
 type DesignerTool = "select" | "symbol" | "text" | "shape" | "message";
 type DesignerObjectKind = "symbol" | "text" | "shape" | "message";
-type PickerMode = "symbol" | "shape" | null;
+type PickerMode = "picto" | "ascii" | "shape" | null;
+
+type PictoKeyword = {
+  keyword?: string;
+};
+
+type PictoResult = {
+  _id: number;
+  keywords?: PictoKeyword[] | string[];
+};
+
+type LocalPicto = {
+  id: string;
+  name: string;
+  path: string;
+  src: string;
+};
 
 type DesignerObject = {
   id: string;
@@ -41,6 +58,7 @@ type DesignerObject = {
 };
 
 const DESIGNER_KEY = "amaretea-boardmaker-designer-v1";
+const LOCAL_LIBRARY_KEY = "pictomesa-local-library-v1";
 const ASCII_SYMBOLS = ["OK", "X", "?", "!", "+", "-", "=", "*", "#", "@", "->", "<-", "^", "v", "<->", ":)", ":(", ":|", "1", "2", "3", "A", "B", "C"];
 const RESIZE_HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
 type ResizeHandle = (typeof RESIZE_HANDLES)[number];
@@ -102,6 +120,23 @@ function asciiArrowShape(symbol: string) {
   };
 
   return shapes[symbol];
+}
+
+function getKeywordLabel(result: PictoResult) {
+  const first = result.keywords?.[0];
+  if (!first) {
+    return `Picto ${result._id}`;
+  }
+
+  if (typeof first === "string") {
+    return first;
+  }
+
+  return first.keyword ?? `Picto ${result._id}`;
+}
+
+function pictogramUrl(id: number) {
+  return `/api/arasaac/pictograms/${id}?download=false&color=true&resolution=500&skin=white&hair=brown`;
 }
 
 function normalizeDesignerObject(object: Partial<DesignerObject>) {
@@ -200,14 +235,36 @@ export function BoardmakerDesigner() {
   const [template, setTemplate] = useState("blank");
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const [pendingObject, setPendingObject] = useState<Partial<DesignerObject> | null>(null);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+  const [query, setQuery] = useState("comer");
+  const [results, setResults] = useState<PictoResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [apiError, setApiError] = useState("");
+  const [apiStatus, setApiStatus] = useState("Biblioteca de pictos lista");
+  const [useArasaac, setUseArasaac] = useState(true);
+  const [useLocalLibrary, setUseLocalLibrary] = useState(true);
+  const [localPictos, setLocalPictos] = useState<LocalPicto[]>([]);
+  const [localLibraryMessage, setLocalLibraryMessage] = useState("Biblioteca local pendiente de recuperar.");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selected = useMemo(() => objects.find((object) => object.id === selectedId) ?? null, [objects, selectedId]);
+  const localResults = useMemo(() => {
+    if (!useLocalLibrary) {
+      return [];
+    }
+
+    const normalized = query.trim().toLowerCase();
+    const matches = normalized
+      ? localPictos.filter((picto) => `${picto.name} ${picto.path}`.toLowerCase().includes(normalized))
+      : localPictos;
+
+    return matches.slice(0, 60);
+  }, [localPictos, query, useLocalLibrary]);
 
   useEffect(() => {
     queueMicrotask(() => {
       const cached = localStorage.getItem(DESIGNER_KEY);
+      const cachedLocal = localStorage.getItem(LOCAL_LIBRARY_KEY);
       if (cached) {
         try {
           const parsed = JSON.parse(cached) as DesignerObject[];
@@ -215,6 +272,22 @@ export function BoardmakerDesigner() {
         } catch {
           setMessage("No pude recuperar el disenador guardado.");
         }
+      }
+
+      if (cachedLocal) {
+        try {
+          const parsed = JSON.parse(cachedLocal) as { path?: string; pictos?: LocalPicto[] };
+          if (Array.isArray(parsed.pictos) && parsed.pictos.length > 0) {
+            setLocalPictos(parsed.pictos);
+            setLocalLibraryMessage(`${parsed.pictos.length} pictos locales recuperados del navegador.`);
+          } else {
+            setLocalLibraryMessage("No hay biblioteca local en cache. Puedes seguir usando ARASAAC o cargar imagenes manuales.");
+          }
+        } catch {
+          setLocalLibraryMessage("No pude leer la biblioteca local guardada.");
+        }
+      } else {
+        setLocalLibraryMessage("No hay biblioteca local en cache. Puedes seguir usando ARASAAC o cargar imagenes manuales.");
       }
     });
   }, []);
@@ -342,6 +415,48 @@ export function BoardmakerDesigner() {
     setObjects((current) => current.map((object) => (object.id === id ? { ...object, ...patch } : object)));
   };
 
+  const runPictoSearch = async (mode: "search" | "new" = "search") => {
+    if (!useArasaac) {
+      setResults([]);
+      setApiError("");
+      setApiStatus("Proveedor ARASAAC desactivado");
+      return;
+    }
+
+    if (mode === "search" && !query.trim()) {
+      setResults([]);
+      setApiError("");
+      setApiStatus("Escribe una busqueda para encontrar pictos");
+      return;
+    }
+
+    setLoading(true);
+    setApiError("");
+    setApiStatus("Buscando pictos...");
+
+    try {
+      const path =
+        mode === "new"
+          ? "/api/arasaac/pictograms/es/new/48"
+          : `/api/arasaac/pictograms/es/search/${encodeURIComponent(query.trim())}`;
+      const response = await fetch(path);
+
+      if (!response.ok) {
+        throw new Error(`ARASAAC respondio con ${response.status}`);
+      }
+
+      const data = (await response.json()) as PictoResult[];
+      setResults(Array.isArray(data) ? data.slice(0, 60) : []);
+      setApiStatus(`ARASAAC: ${Array.isArray(data) ? data.length : 0} resultados`);
+    } catch (error) {
+      const nextError = error instanceof Error ? error.message : "No pude consultar ARASAAC";
+      setApiError(nextError);
+      setApiStatus(nextError);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const addObject = (kind: DesignerObjectKind, patch: Partial<DesignerObject> = {}) => {
     const object = normalizeDesignerObject({
       id: uid("obj"),
@@ -386,6 +501,44 @@ export function BoardmakerDesigner() {
     setMessage("Simbolo ASCII preparado. Haz clic en el lienzo para pegarlo.");
   };
 
+  const chooseArasaacPicto = (result: PictoResult) => {
+    setPendingObject({
+      kind: "symbol",
+      src: pictogramUrl(result._id),
+      text: getKeywordLabel(result),
+      bg: "#ffffff",
+      border: "#111827",
+      radius: 8,
+      fontSize: 18,
+      w: 140,
+      h: 148,
+      rotation: 0,
+      speak: true,
+    });
+    setPickerMode(null);
+    setTool("symbol");
+    setMessage("Picto preparado. Haz clic en el lienzo para pegarlo.");
+  };
+
+  const chooseLocalPicto = (picto: LocalPicto) => {
+    setPendingObject({
+      kind: "symbol",
+      src: picto.src,
+      text: picto.name,
+      bg: "#ffffff",
+      border: "#111827",
+      radius: 8,
+      fontSize: 18,
+      w: 140,
+      h: 148,
+      rotation: 0,
+      speak: true,
+    });
+    setPickerMode(null);
+    setTool("symbol");
+    setMessage("Picto local preparado. Haz clic en el lienzo para pegarlo.");
+  };
+
   const chooseShape = (shape: ShapeChoice) => {
     const shapeConfig: Record<ShapeChoice, Partial<DesignerObject>> = {
       rect: { kind: "shape", shapeType: "rect", w: 170, h: 110, bg: "#dbeafe", border: "#111827", radius: 0, text: "" },
@@ -411,6 +564,8 @@ export function BoardmakerDesigner() {
   const loadImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
+      event.target.value = "";
+      setMessage("Seleccion de imagen cancelada.");
       return;
     }
     addObject("symbol", {
@@ -418,6 +573,8 @@ export function BoardmakerDesigner() {
       text: file.name.replace(/\.[^.]+$/, ""),
     });
     event.target.value = "";
+    setPendingObject(null);
+    setTool("select");
   };
 
   const onCanvasPointerDown = (event: PointerEvent<HTMLDivElement>) => {
@@ -430,8 +587,13 @@ export function BoardmakerDesigner() {
     const y = event.clientY - rect.top;
     const prepared = pendingObject;
 
-    if ((tool === "symbol" || tool === "shape") && !prepared) {
-      setPickerMode(tool);
+    if (tool === "symbol" && !prepared) {
+      setPickerMode("picto");
+      return;
+    }
+
+    if (tool === "shape" && !prepared) {
+      setPickerMode("shape");
       return;
     }
 
@@ -565,88 +727,118 @@ export function BoardmakerDesigner() {
       </nav>
 
       <section className={`designer-shell ${expanded ? "expanded" : ""}`}>
-        <aside className="designer-panel">
-          <Link className="back-link" href="/">
-            <ArrowLeft size={17} />
-            Herramientas
-          </Link>
-          <p className="eyebrow">Designer</p>
-          <h1>Disenador libre</h1>
-          <p>
-            Cubre el flujo tipo Boardmaker: plantillas, objetos, simbolos, etiquetas, mensajes, estilos,
-            acciones de voz, impresion y exportacion.
-          </p>
-
-          <div className="designer-toolgrid">
-            <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}><MousePointer2 size={16} /> Seleccionar</button>
-            <button
-              className={tool === "symbol" ? "active" : ""}
-              onClick={() => {
-                setTool("symbol");
-                setPickerMode("symbol");
-              }}
-            >
-              <Grid2X2 size={16} /> Simbolo
+        <aside className={`designer-panel ${expanded ? "collapsed" : ""}`}>
+          {expanded ? (
+            <button className="designer-sidebar-toggle" onClick={() => setExpanded(false)}>
+              Herr.
             </button>
-            <button className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}><Type size={16} /> Texto</button>
-            <button
-              className={tool === "shape" ? "active" : ""}
-              onClick={() => {
-                setTool("shape");
-                setPickerMode("shape");
-              }}
-            >
-              <Shapes size={16} /> Forma
-            </button>
-            <button className={tool === "message" ? "active" : ""} onClick={() => setTool("message")}><MessageSquare size={16} /> Mensaje</button>
-            <button className={expanded ? "active" : ""} onClick={() => setExpanded((current) => !current)}>
-              Ampliado
-            </button>
-          </div>
+          ) : (
+            <>
+              <Link className="back-link" href="/">
+                <ArrowLeft size={17} />
+                Herramientas
+              </Link>
+              <p className="eyebrow">Designer</p>
+              <h1>Disenador libre</h1>
+              <p>
+                Herramientas de pictos, ASCII, formas, imagen local y exportacion en un mismo espacio de trabajo.
+              </p>
 
-          <div className="control-group stacked">
-            <label>Plantilla</label>
-            <select
-              value={template}
-              onChange={(event) => {
-                const next = event.target.value;
-                setTemplate(next);
-                setObjects(templateObjects[next]?.map((object) => normalizeDesignerObject({ ...object, id: uid("obj") })) ?? []);
-              }}
-            >
-              <option value="blank">Lienzo en blanco</option>
-              <option value="communication">Comunicador 4x3</option>
-              <option value="firstThen">Primero / despues</option>
-            </select>
-          </div>
+              <div className="designer-toolgrid">
+                <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}><MousePointer2 size={16} /> Seleccionar</button>
+                <button
+                  className={tool === "symbol" ? "active" : ""}
+                  onClick={() => {
+                    setTool("symbol");
+                    setPickerMode("picto");
+                    void runPictoSearch("new");
+                  }}
+                >
+                  <Grid2X2 size={16} /> Picto
+                </button>
+                <button
+                  onClick={() => {
+                    setTool("symbol");
+                    setPickerMode("ascii");
+                  }}
+                >
+                  ASCII
+                </button>
+                <button className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}><Type size={16} /> Texto</button>
+                <button
+                  className={tool === "shape" ? "active" : ""}
+                  onClick={() => {
+                    setTool("shape");
+                    setPickerMode("shape");
+                  }}
+                >
+                  <Shapes size={16} /> Forma
+                </button>
+                <button className={tool === "message" ? "active" : ""} onClick={() => setTool("message")}><MessageSquare size={16} /> Mensaje</button>
+              </div>
 
-          <button className="command-button compact" onClick={() => setPickerMode("symbol")}>
-            Abrir simbolos ASCII
-          </button>
-          <button className="command-button secondary compact" onClick={() => setPickerMode("shape")}>
-            <Shapes size={16} />
-            Formas y conectores
-          </button>
-          <button className="command-button secondary compact" onClick={() => fileInputRef.current?.click()}>
-            <ImageIcon size={16} />
-            Imagen local
-          </button>
-          <input ref={fileInputRef} className="sr-only" type="file" accept="image/*" onChange={loadImage} />
+              <div className="control-group stacked">
+                <label>Plantilla</label>
+                <select
+                  value={template}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setTemplate(next);
+                    setObjects(templateObjects[next]?.map((object) => normalizeDesignerObject({ ...object, id: uid("obj") })) ?? []);
+                  }}
+                >
+                  <option value="blank">Lienzo en blanco</option>
+                  <option value="communication">Comunicador 4x3</option>
+                  <option value="firstThen">Primero / despues</option>
+                </select>
+              </div>
 
-          <div className="designer-actions">
-            <button className="command-button secondary compact" onClick={exportJson}><FileDown size={16} /> JSON</button>
-            <button className="command-button secondary compact" onClick={() => void exportPng()}><Download size={16} /> PNG</button>
-            <label className="command-button secondary compact">
-              <FileUp size={16} />
-              Importar
-              <input className="sr-only" type="file" accept="application/json" onChange={importJson} />
-            </label>
-            <button className="command-button primary compact" onClick={printCanvas}><Download size={16} /> Imprimir</button>
-          </div>
-          <p className="local-library-message">{message}</p>
+              <div className="designer-actions">
+                <button
+                  className="command-button compact"
+                  onClick={() => {
+                    setPickerMode("picto");
+                    void runPictoSearch("new");
+                  }}
+                >
+                  Buscar pictos
+                </button>
+                <button className="command-button secondary compact" onClick={() => setPickerMode("ascii")}>
+                  Abrir ASCII
+                </button>
+                <button className="command-button secondary compact" onClick={() => setPickerMode("shape")}>
+                  <Shapes size={16} />
+                  Conectores
+                </button>
+                <button className="command-button secondary compact" onClick={() => fileInputRef.current?.click()}>
+                  <ImageIcon size={16} />
+                  Imagen local
+                </button>
+                <input ref={fileInputRef} className="sr-only" type="file" accept="image/*" onChange={loadImage} />
+              </div>
+
+              <div className="designer-actions split">
+                <button className="command-button secondary compact" onClick={exportJson}><FileDown size={16} /> JSON</button>
+                <button className="command-button secondary compact" onClick={() => void exportPng()}><Download size={16} /> PNG</button>
+                <label className="command-button secondary compact">
+                  <FileUp size={16} />
+                  Importar
+                  <input className="sr-only" type="file" accept="application/json" onChange={importJson} />
+                </label>
+                <button className="command-button primary compact" onClick={printCanvas}><Download size={16} /> Imprimir</button>
+              </div>
+              <p className="local-library-message">{message}</p>
+            </>
+          )}
         </aside>
 
         <section className="designer-workspace">
+          <div className="designer-workspace-toolbar">
+            <button className="command-button secondary compact" onClick={() => setExpanded((current) => !current)}>
+              {expanded ? "Mostrar paneles" : "Maximizar lienzo"}
+            </button>
+            <span>{selected ? `Seleccionado: ${selected.text || selected.kind}` : "Sin seleccion"}</span>
+          </div>
           <div ref={canvasRef} className="designer-canvas" onPointerDown={onCanvasPointerDown}>
             {objects.map((object) => {
               const isStretchArrow = Boolean(object.shapeType?.startsWith("ascii-arrow"));
@@ -732,69 +924,77 @@ export function BoardmakerDesigner() {
           </div>
         </section>
 
-        <aside className="designer-properties">
-          <p className="eyebrow">Propiedades</p>
-          {selected ? (
-            <>
-              <div className="control-group stacked">
-                <label>Texto / etiqueta</label>
-                <input value={selected.text} onChange={(event) => updateObject(selected.id, { text: event.target.value })} />
-              </div>
-              <div className="designer-prop-grid">
-                <label>X<input type="number" value={Math.round(selected.x)} onChange={(event) => updateObject(selected.id, { x: Number(event.target.value) })} /></label>
-                <label>Y<input type="number" value={Math.round(selected.y)} onChange={(event) => updateObject(selected.id, { y: Number(event.target.value) })} /></label>
-                <label>Ancho<input type="number" value={Math.round(selected.w)} onChange={(event) => updateObject(selected.id, { w: Number(event.target.value) })} /></label>
-                <label>Alto<input type="number" value={Math.round(selected.h)} onChange={(event) => updateObject(selected.id, { h: Number(event.target.value) })} /></label>
-                <label>Texto<input type="number" value={selected.fontSize} onChange={(event) => updateObject(selected.id, { fontSize: Number(event.target.value) })} /></label>
-                <label>Radio<input type="number" value={selected.radius} onChange={(event) => updateObject(selected.id, { radius: Number(event.target.value) })} /></label>
-                <label>Rotacion<input type="number" value={selected.rotation} onChange={(event) => updateObject(selected.id, { rotation: Number(event.target.value) })} /></label>
-              </div>
-              <div className="designer-prop-grid">
-                <label>Fondo<input type="color" value={selected.bg} onChange={(event) => updateObject(selected.id, { bg: event.target.value })} /></label>
-                <label>Marco<input type="color" value={selected.border} onChange={(event) => updateObject(selected.id, { border: event.target.value })} /></label>
-              </div>
-              <label className="toggle-line">
-                <input type="checkbox" checked={Boolean(selected.speak)} onChange={(event) => updateObject(selected.id, { speak: event.target.checked })} />
-                <Volume2 size={16} />
-                Leer al hacer doble clic
-              </label>
-              <div className="designer-actions">
-                <button className="command-button secondary compact" onClick={() => void symbolateSelected()}>
-                  Symbolate
-                </button>
-                <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation - 15 })}>
-                  Girar -15
-                </button>
-                <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation + 15 })}>
-                  Girar +15
-                </button>
-                <button
-                  className="command-button secondary compact"
-                  onClick={() =>
-                    setObjects((current) => [...current.filter((object) => object.id !== selected.id), selected])
-                  }
-                >
-                  Delante
-                </button>
-                <button
-                  className="command-button secondary compact"
-                  onClick={() =>
-                    setObjects((current) => [selected, ...current.filter((object) => object.id !== selected.id)])
-                  }
-                >
-                  Detras
-                </button>
-                <button className="command-button secondary compact" onClick={() => setObjects((current) => [...current, { ...selected, id: uid("obj"), x: selected.x + 20, y: selected.y + 20 }])}>
-                  <Plus size={16} />
-                  Duplicar
-                </button>
-                <button className="command-button danger compact" onClick={() => setObjects((current) => current.filter((object) => object.id !== selected.id))}>
-                  Eliminar
-                </button>
-              </div>
-            </>
+        <aside className={`designer-properties ${expanded ? "collapsed" : ""}`}>
+          {expanded ? (
+            <button className="designer-sidebar-toggle" onClick={() => setExpanded(false)}>
+              Props
+            </button>
           ) : (
-            <p className="muted">Selecciona un objeto del lienzo para editarlo.</p>
+            <>
+              <p className="eyebrow">Propiedades</p>
+              {selected ? (
+                <>
+                  <div className="control-group stacked">
+                    <label>Texto / etiqueta</label>
+                    <input value={selected.text} onChange={(event) => updateObject(selected.id, { text: event.target.value })} />
+                  </div>
+                  <div className="designer-prop-grid">
+                    <label>X<input type="number" value={Math.round(selected.x)} onChange={(event) => updateObject(selected.id, { x: Number(event.target.value) })} /></label>
+                    <label>Y<input type="number" value={Math.round(selected.y)} onChange={(event) => updateObject(selected.id, { y: Number(event.target.value) })} /></label>
+                    <label>Ancho<input type="number" value={Math.round(selected.w)} onChange={(event) => updateObject(selected.id, { w: Number(event.target.value) })} /></label>
+                    <label>Alto<input type="number" value={Math.round(selected.h)} onChange={(event) => updateObject(selected.id, { h: Number(event.target.value) })} /></label>
+                    <label>Texto<input type="number" value={selected.fontSize} onChange={(event) => updateObject(selected.id, { fontSize: Number(event.target.value) })} /></label>
+                    <label>Radio<input type="number" value={selected.radius} onChange={(event) => updateObject(selected.id, { radius: Number(event.target.value) })} /></label>
+                    <label>Rotacion<input type="number" value={selected.rotation} onChange={(event) => updateObject(selected.id, { rotation: Number(event.target.value) })} /></label>
+                  </div>
+                  <div className="designer-prop-grid">
+                    <label>Fondo<input type="color" value={selected.bg} onChange={(event) => updateObject(selected.id, { bg: event.target.value })} /></label>
+                    <label>Marco<input type="color" value={selected.border} onChange={(event) => updateObject(selected.id, { border: event.target.value })} /></label>
+                  </div>
+                  <label className="toggle-line">
+                    <input type="checkbox" checked={Boolean(selected.speak)} onChange={(event) => updateObject(selected.id, { speak: event.target.checked })} />
+                    <Volume2 size={16} />
+                    Leer al hacer doble clic
+                  </label>
+                  <div className="designer-actions">
+                    <button className="command-button secondary compact" onClick={() => void symbolateSelected()}>
+                      Symbolate
+                    </button>
+                    <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation - 15 })}>
+                      Girar -15
+                    </button>
+                    <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation + 15 })}>
+                      Girar +15
+                    </button>
+                    <button
+                      className="command-button secondary compact"
+                      onClick={() =>
+                        setObjects((current) => [...current.filter((object) => object.id !== selected.id), selected])
+                      }
+                    >
+                      Delante
+                    </button>
+                    <button
+                      className="command-button secondary compact"
+                      onClick={() =>
+                        setObjects((current) => [selected, ...current.filter((object) => object.id !== selected.id)])
+                      }
+                    >
+                      Detras
+                    </button>
+                    <button className="command-button secondary compact" onClick={() => setObjects((current) => [...current, { ...selected, id: uid("obj"), x: selected.x + 20, y: selected.y + 20 }])}>
+                      <Plus size={16} />
+                      Duplicar
+                    </button>
+                    <button className="command-button danger compact" onClick={() => setObjects((current) => current.filter((object) => object.id !== selected.id))}>
+                      Eliminar
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="muted">Selecciona un objeto del lienzo para editarlo.</p>
+              )}
+            </>
           )}
         </aside>
       </section>
@@ -802,8 +1002,67 @@ export function BoardmakerDesigner() {
       {pickerMode ? (
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="designer-picker-title">
           <div className="modal designer-picker-modal">
-            <h2 id="designer-picker-title">{pickerMode === "symbol" ? "Seleccionar simbolo" : "Seleccionar forma"}</h2>
-            {pickerMode === "symbol" ? (
+            <h2 id="designer-picker-title">
+              {pickerMode === "picto" ? "Buscar pictos" : pickerMode === "ascii" ? "Seleccionar simbolo ASCII" : "Seleccionar forma"}
+            </h2>
+            {pickerMode === "picto" ? (
+              <>
+                <div className="source-toggles designer-source-toggles" aria-label="Fuentes de pictos">
+                  <label>
+                    <input type="checkbox" checked={useArasaac} onChange={(event) => setUseArasaac(event.target.checked)} />
+                    Biblioteca ARASAAC
+                  </label>
+                  <label>
+                    <input type="checkbox" checked={useLocalLibrary} onChange={(event) => setUseLocalLibrary(event.target.checked)} />
+                    Biblioteca local
+                  </label>
+                </div>
+                <div className="search-box designer-picker-search">
+                  <Search size={18} />
+                  <input
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        void runPictoSearch();
+                      }
+                    }}
+                    placeholder="Buscar agua, comer, rutina..."
+                  />
+                </div>
+                <div className="designer-actions split">
+                  <button className="command-button compact" onClick={() => void runPictoSearch()}>
+                    Buscar
+                  </button>
+                  <button className="command-button secondary compact" onClick={() => void runPictoSearch("new")}>
+                    Novedades
+                  </button>
+                </div>
+                <p className={`designer-library-status ${apiError ? "error" : ""}`}>{apiError || apiStatus}</p>
+                <p className="designer-library-status">{localLibraryMessage}</p>
+                <div className="designer-picto-grid">
+                  {useLocalLibrary
+                    ? localResults.map((picto) => (
+                        <button key={picto.id} onClick={() => chooseLocalPicto(picto)}>
+                          <img src={picto.src} alt={picto.name} />
+                          <span>{picto.name}</span>
+                        </button>
+                      ))
+                    : null}
+                  {useArasaac
+                    ? results.map((result) => (
+                        <button key={result._id} onClick={() => chooseArasaacPicto(result)}>
+                          <img src={pictogramUrl(result._id)} alt={getKeywordLabel(result)} />
+                          <span>{getKeywordLabel(result)}</span>
+                        </button>
+                      ))
+                    : null}
+                </div>
+                {!loading && useLocalLibrary && localResults.length === 0 && useArasaac && results.length === 0 ? (
+                  <p className="muted">No hay resultados con ese filtro.</p>
+                ) : null}
+              </>
+            ) : pickerMode === "ascii" ? (
               <div className="ascii-symbol-grid">
                 {ASCII_SYMBOLS.map((symbol) => (
                   <button key={symbol} onClick={() => chooseAsciiSymbol(symbol)}>
