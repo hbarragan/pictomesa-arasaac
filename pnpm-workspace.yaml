@@ -1,0 +1,7 @@
+minimumReleaseAge: 1440
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+blockExoticSubdeps: true
+allowBuilds:
+  sharp: false
+  unrs-resolver: false
