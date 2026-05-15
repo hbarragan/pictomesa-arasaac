@@ -384,6 +384,7 @@ export function PictoStudio() {
   const [dragCellId, setDragCellId] = useState<string | null>(null);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [legalOpen, setLegalOpen] = useState(false);
+  const [projectControlsCollapsed, setProjectControlsCollapsed] = useState(false);
   const [libraryCollapsed, setLibraryCollapsed] = useState(false);
   const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -392,6 +393,7 @@ export function PictoStudio() {
   const canvasRef = useRef<HTMLElement>(null);
   const libraryRef = useRef<HTMLElement>(null);
   const inspectorRef = useRef<HTMLElement>(null);
+  const topbarRef = useRef<HTMLElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const localFolderInputRef = useRef<HTMLInputElement>(null);
   const localFilesInputRef = useRef<HTMLInputElement>(null);
@@ -497,6 +499,12 @@ export function PictoStudio() {
       }
 
       setHydrated(true);
+
+      if (window.innerWidth <= 1024) {
+        setProjectControlsCollapsed(true);
+        setLibraryCollapsed(true);
+        setInspectorCollapsed(true);
+      }
     });
   }, []);
 
@@ -1010,23 +1018,32 @@ export function PictoStudio() {
       <AppNav current="pictogramas" subtitle="Tableros de pictogramas" />
       <section className="studio-shell">
         <section className="workspace">
-          <header className="topbar">
-            <div>
-              <p className="eyebrow">Editor visual de apoyos CAA</p>
-              <input
-                className="project-title"
-                value={activeProject.name}
-                onChange={(event) =>
-                  updateActiveProject((project) => ({
-                    ...project,
-                    name: event.target.value,
-                  }))
-                }
-                aria-label="Nombre del proyecto"
-              />
+          <header className="topbar" ref={topbarRef}>
+            <div className="topbar-heading">
+              <div>
+                <p className="eyebrow">Editor visual de apoyos CAA</p>
+                <input
+                  className="project-title"
+                  value={activeProject.name}
+                  onChange={(event) =>
+                    updateActiveProject((project) => ({
+                      ...project,
+                      name: event.target.value,
+                    }))
+                  }
+                  aria-label="Nombre del proyecto"
+                />
+              </div>
+              <button
+                className="collapse-button topbar-mobile-toggle"
+                onClick={() => setProjectControlsCollapsed((current) => !current)}
+                aria-expanded={!projectControlsCollapsed}
+              >
+                {projectControlsCollapsed ? "Proyecto" : "Ocultar"}
+              </button>
             </div>
 
-            <div className="topbar-actions">
+            <div className={`topbar-actions ${projectControlsCollapsed ? "collapsed" : ""}`}>
               <select
                 value={activeProjectId}
                 onChange={(event) => setActiveProjectId(event.target.value)}
@@ -1082,6 +1099,14 @@ export function PictoStudio() {
           </header>
 
           <nav className="mobile-jumpbar" aria-label="Navegacion movil">
+            <button
+              onClick={() => {
+                setProjectControlsCollapsed(false);
+                topbarRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
+              Proyecto
+            </button>
             <button onClick={() => canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
               Tablero
             </button>
@@ -1099,9 +1124,14 @@ export function PictoStudio() {
                 libraryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
               }}
             >
-              {libraryCollapsed ? "Abrir" : "Plegar"}
+              {libraryCollapsed ? "Biblioteca" : "Plegar"}
             </button>
-            <button onClick={() => inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+            <button
+              onClick={() => {
+                setInspectorCollapsed(false);
+                inspectorRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+              }}
+            >
               Ajustes
             </button>
           </nav>

@@ -127,6 +127,10 @@ function pictogramUrl(id: number) {
   return `/api/arasaac/pictograms/${id}?download=false&color=true&resolution=500&skin=white&hair=brown`;
 }
 
+function startsCollapsedForCompactScreens() {
+  return typeof window !== "undefined" && window.innerWidth <= 1024;
+}
+
 function normalizeDesignerObject(object: Partial<DesignerObject>) {
   return {
     id: object.id ?? uid("obj"),
@@ -198,6 +202,9 @@ const templateObjects: Record<string, DesignerObject[]> = {
 
 export function BoardmakerDesigner() {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
+  const propertiesRef = useRef<HTMLElement>(null);
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const [objects, setObjects] = useState<DesignerObject[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -223,7 +230,9 @@ export function BoardmakerDesigner() {
   const [template, setTemplate] = useState("blank");
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const [pendingObject, setPendingObject] = useState<Partial<DesignerObject> | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(() => startsCollapsedForCompactScreens());
+  const [mobilePanelCollapsed, setMobilePanelCollapsed] = useState(() => startsCollapsedForCompactScreens());
+  const [mobilePropertiesCollapsed, setMobilePropertiesCollapsed] = useState(() => startsCollapsedForCompactScreens());
   const [query, setQuery] = useState("comer");
   const [results, setResults] = useState<PictoResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -714,9 +723,40 @@ export function BoardmakerDesigner() {
   return (
     <main className="designer-page">
       <AppNav current="disenador" subtitle="Disenador tipo Boardmaker" />
+      <nav className="module-jumpbar" aria-label="Atajos del disenador">
+        <button
+          onClick={() => {
+            setExpanded(true);
+            workspaceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        >
+          Lienzo
+        </button>
+        <button
+          onClick={() => {
+            setExpanded(false);
+            setMobilePanelCollapsed(false);
+            panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        >
+          Herramientas
+        </button>
+        <button
+          onClick={() => {
+            setExpanded(false);
+            setMobilePropertiesCollapsed(false);
+            propertiesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        >
+          Propiedades
+        </button>
+        <button className="module-jumpbar-accent" onClick={() => setExpanded((current) => !current)}>
+          {expanded ? "Paneles" : "Maximizar"}
+        </button>
+      </nav>
 
       <section className={`designer-shell ${expanded ? "expanded" : ""}`}>
-        <aside className={`designer-panel ${expanded ? "collapsed" : ""}`} onPointerDown={(event) => {
+        <aside ref={panelRef} className={`designer-panel ${expanded ? "collapsed" : ""}`} onPointerDown={(event) => {
           if (event.target === event.currentTarget) {
             setSelectedId(null);
           }
@@ -727,94 +767,105 @@ export function BoardmakerDesigner() {
             </button>
           ) : (
             <>
-              <Link className="back-link" href="/">
-                <ArrowLeft size={17} />
-                Herramientas
-              </Link>
-              <p className="eyebrow">Designer</p>
-              <h1>Disenador libre</h1>
-              <p>
-                Herramientas de pictos, formas, imagen local y exportacion en un mismo espacio de trabajo.
-              </p>
-
-              <div className="designer-toolgrid">
-                <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}><MousePointer2 size={16} /> Seleccionar</button>
+              <div className="designer-mobile-sectionbar">
                 <button
-                  className={tool === "symbol" ? "active" : ""}
-                  onClick={() => {
-                    setTool("symbol");
-                    setPickerMode("picto");
-                    void runPictoSearch("new");
-                  }}
+                  className="collapse-button"
+                  onClick={() => setMobilePanelCollapsed((current) => !current)}
+                  aria-expanded={!mobilePanelCollapsed}
                 >
-                  <Grid2X2 size={16} /> Picto
+                  {mobilePanelCollapsed ? "Mostrar herramientas" : "Plegar herramientas"}
                 </button>
-                <button className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}><Type size={16} /> Texto</button>
-                <button
-                  className={tool === "shape" ? "active" : ""}
-                  onClick={() => {
-                    setTool("shape");
-                    setPickerMode("shape");
-                  }}
-                >
-                  <Shapes size={16} /> Forma
-                </button>
-                <button className={tool === "message" ? "active" : ""} onClick={() => setTool("message")}><MessageSquare size={16} /> Mensaje</button>
               </div>
+              <div className={mobilePanelCollapsed ? "collapsible-content collapsed" : "collapsible-content"}>
+                <Link className="back-link" href="/">
+                  <ArrowLeft size={17} />
+                  Herramientas
+                </Link>
+                <p className="eyebrow">Designer</p>
+                <h1>Disenador libre</h1>
+                <p>
+                  Herramientas de pictos, formas, imagen local y exportacion en un mismo espacio de trabajo.
+                </p>
 
-              <div className="control-group stacked">
-                <label>Plantilla</label>
-                <select
-                  value={template}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setTemplate(next);
-                    setObjects(templateObjects[next]?.map((object) => normalizeDesignerObject({ ...object, id: uid("obj") })) ?? []);
-                  }}
-                >
-                  <option value="blank">Lienzo en blanco</option>
-                  <option value="communication">Comunicador 4x3</option>
-                  <option value="firstThen">Primero / despues</option>
-                </select>
-              </div>
+                <div className="designer-toolgrid">
+                  <button className={tool === "select" ? "active" : ""} onClick={() => setTool("select")}><MousePointer2 size={16} /> Seleccionar</button>
+                  <button
+                    className={tool === "symbol" ? "active" : ""}
+                    onClick={() => {
+                      setTool("symbol");
+                      setPickerMode("picto");
+                      void runPictoSearch("new");
+                    }}
+                  >
+                    <Grid2X2 size={16} /> Picto
+                  </button>
+                  <button className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}><Type size={16} /> Texto</button>
+                  <button
+                    className={tool === "shape" ? "active" : ""}
+                    onClick={() => {
+                      setTool("shape");
+                      setPickerMode("shape");
+                    }}
+                  >
+                    <Shapes size={16} /> Forma
+                  </button>
+                  <button className={tool === "message" ? "active" : ""} onClick={() => setTool("message")}><MessageSquare size={16} /> Mensaje</button>
+                </div>
 
-              <div className="designer-actions">
-                <button
-                  className="command-button compact"
-                  onClick={() => {
-                    setPickerMode("picto");
-                    void runPictoSearch("new");
-                  }}
-                >
-                  Buscar pictos
-                </button>
-                <button className="command-button secondary compact" onClick={() => setPickerMode("shape")}>
-                  <Shapes size={16} />
-                  Conectores
-                </button>
-                <button className="command-button secondary compact" onClick={() => fileInputRef.current?.click()}>
-                  <ImageIcon size={16} />
-                  Imagen local
-                </button>
-                <input ref={fileInputRef} className="sr-only" type="file" accept="image/*" onChange={loadImage} />
-              </div>
+                <div className="control-group stacked">
+                  <label>Plantilla</label>
+                  <select
+                    value={template}
+                    onChange={(event) => {
+                      const next = event.target.value;
+                      setTemplate(next);
+                      setObjects(templateObjects[next]?.map((object) => normalizeDesignerObject({ ...object, id: uid("obj") })) ?? []);
+                    }}
+                  >
+                    <option value="blank">Lienzo en blanco</option>
+                    <option value="communication">Comunicador 4x3</option>
+                    <option value="firstThen">Primero / despues</option>
+                  </select>
+                </div>
 
-              <div className="designer-actions split">
-                <button className="command-button secondary compact" onClick={exportJson}><FileDown size={16} /> JSON</button>
-                <button className="command-button secondary compact" onClick={() => void exportPng()}><Download size={16} /> PNG</button>
-                <label className="command-button secondary compact">
-                  <FileUp size={16} />
-                  Importar
-                  <input className="sr-only" type="file" accept="application/json" onChange={importJson} />
-                </label>
-                <button className="command-button primary compact" onClick={printCanvas}><Download size={16} /> Imprimir</button>
+                <div className="designer-actions">
+                  <button
+                    className="command-button compact"
+                    onClick={() => {
+                      setPickerMode("picto");
+                      void runPictoSearch("new");
+                    }}
+                  >
+                    Buscar pictos
+                  </button>
+                  <button className="command-button secondary compact" onClick={() => setPickerMode("shape")}>
+                    <Shapes size={16} />
+                    Conectores
+                  </button>
+                  <button className="command-button secondary compact" onClick={() => fileInputRef.current?.click()}>
+                    <ImageIcon size={16} />
+                    Imagen local
+                  </button>
+                  <input ref={fileInputRef} className="sr-only" type="file" accept="image/*" onChange={loadImage} />
+                </div>
+
+                <div className="designer-actions split">
+                  <button className="command-button secondary compact" onClick={exportJson}><FileDown size={16} /> JSON</button>
+                  <button className="command-button secondary compact" onClick={() => void exportPng()}><Download size={16} /> PNG</button>
+                  <label className="command-button secondary compact">
+                    <FileUp size={16} />
+                    Importar
+                    <input className="sr-only" type="file" accept="application/json" onChange={importJson} />
+                  </label>
+                  <button className="command-button primary compact" onClick={printCanvas}><Download size={16} /> Imprimir</button>
+                </div>
+                <p className="local-library-message">{message}</p>
               </div>
-              <p className="local-library-message">{message}</p>
             </>
           )}
         </aside>
 
-        <section className="designer-workspace">
+        <section ref={workspaceRef} className="designer-workspace">
           <div className="designer-workspace-toolbar">
             <button className="command-button secondary compact" onClick={() => setExpanded((current) => !current)}>
               {expanded ? "Mostrar paneles" : "Maximizar lienzo"}
@@ -898,7 +949,7 @@ export function BoardmakerDesigner() {
           </div>
         </section>
 
-        <aside className={`designer-properties ${expanded ? "collapsed" : ""}`} onPointerDown={(event) => {
+        <aside ref={propertiesRef} className={`designer-properties ${expanded ? "collapsed" : ""}`} onPointerDown={(event) => {
           if (event.target === event.currentTarget) {
             setSelectedId(null);
           }
@@ -909,69 +960,80 @@ export function BoardmakerDesigner() {
             </button>
           ) : (
             <>
-              <p className="eyebrow">Propiedades</p>
-              {selected ? (
-                <>
-                  <div className="control-group stacked">
-                    <label>Texto / etiqueta</label>
-                    <input value={selected.text} onChange={(event) => updateObject(selected.id, { text: event.target.value })} />
-                  </div>
-                  <div className="designer-prop-grid">
-                    <label>X<input type="number" value={Math.round(selected.x)} onChange={(event) => updateObject(selected.id, { x: Number(event.target.value) })} /></label>
-                    <label>Y<input type="number" value={Math.round(selected.y)} onChange={(event) => updateObject(selected.id, { y: Number(event.target.value) })} /></label>
-                    <label>Ancho<input type="number" value={Math.round(selected.w)} onChange={(event) => updateObject(selected.id, { w: Number(event.target.value) })} /></label>
-                    <label>Alto<input type="number" value={Math.round(selected.h)} onChange={(event) => updateObject(selected.id, { h: Number(event.target.value) })} /></label>
-                    <label>Texto<input type="number" value={selected.fontSize} onChange={(event) => updateObject(selected.id, { fontSize: Number(event.target.value) })} /></label>
-                    <label>Radio<input type="number" value={selected.radius} onChange={(event) => updateObject(selected.id, { radius: Number(event.target.value) })} /></label>
-                    <label>Rotacion<input type="number" value={selected.rotation} onChange={(event) => updateObject(selected.id, { rotation: Number(event.target.value) })} /></label>
-                  </div>
-                  <div className="designer-prop-grid">
-                    <label>Fondo<input type="color" value={selected.bg} onChange={(event) => updateObject(selected.id, { bg: event.target.value })} /></label>
-                    <label>Marco<input type="color" value={selected.border} onChange={(event) => updateObject(selected.id, { border: event.target.value })} /></label>
-                  </div>
-                  <label className="toggle-line">
-                    <input type="checkbox" checked={Boolean(selected.speak)} onChange={(event) => updateObject(selected.id, { speak: event.target.checked })} />
-                    <Volume2 size={16} />
-                    Leer al hacer doble clic
-                  </label>
-                  <div className="designer-actions">
-                    <button className="command-button secondary compact" onClick={() => void symbolateSelected()}>
-                      Symbolate
-                    </button>
-                    <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation - 15 })}>
-                      Girar -15
-                    </button>
-                    <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation + 15 })}>
-                      Girar +15
-                    </button>
-                    <button
-                      className="command-button secondary compact"
-                      onClick={() =>
-                        setObjects((current) => [...current.filter((object) => object.id !== selected.id), selected])
-                      }
-                    >
-                      Delante
-                    </button>
-                    <button
-                      className="command-button secondary compact"
-                      onClick={() =>
-                        setObjects((current) => [selected, ...current.filter((object) => object.id !== selected.id)])
-                      }
-                    >
-                      Detras
-                    </button>
-                    <button className="command-button secondary compact" onClick={() => setObjects((current) => [...current, { ...selected, id: uid("obj"), x: selected.x + 20, y: selected.y + 20 }])}>
-                      <Plus size={16} />
-                      Duplicar
-                    </button>
-                    <button className="command-button danger compact" onClick={() => setObjects((current) => current.filter((object) => object.id !== selected.id))}>
-                      Eliminar
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <p className="muted">Selecciona un objeto del lienzo para editarlo.</p>
-              )}
+              <div className="designer-mobile-sectionbar">
+                <button
+                  className="collapse-button"
+                  onClick={() => setMobilePropertiesCollapsed((current) => !current)}
+                  aria-expanded={!mobilePropertiesCollapsed}
+                >
+                  {mobilePropertiesCollapsed ? "Mostrar propiedades" : "Plegar propiedades"}
+                </button>
+              </div>
+              <div className={mobilePropertiesCollapsed ? "collapsible-content collapsed" : "collapsible-content"}>
+                <p className="eyebrow">Propiedades</p>
+                {selected ? (
+                  <>
+                    <div className="control-group stacked">
+                      <label>Texto / etiqueta</label>
+                      <input value={selected.text} onChange={(event) => updateObject(selected.id, { text: event.target.value })} />
+                    </div>
+                    <div className="designer-prop-grid">
+                      <label>X<input type="number" value={Math.round(selected.x)} onChange={(event) => updateObject(selected.id, { x: Number(event.target.value) })} /></label>
+                      <label>Y<input type="number" value={Math.round(selected.y)} onChange={(event) => updateObject(selected.id, { y: Number(event.target.value) })} /></label>
+                      <label>Ancho<input type="number" value={Math.round(selected.w)} onChange={(event) => updateObject(selected.id, { w: Number(event.target.value) })} /></label>
+                      <label>Alto<input type="number" value={Math.round(selected.h)} onChange={(event) => updateObject(selected.id, { h: Number(event.target.value) })} /></label>
+                      <label>Texto<input type="number" value={selected.fontSize} onChange={(event) => updateObject(selected.id, { fontSize: Number(event.target.value) })} /></label>
+                      <label>Radio<input type="number" value={selected.radius} onChange={(event) => updateObject(selected.id, { radius: Number(event.target.value) })} /></label>
+                      <label>Rotacion<input type="number" value={selected.rotation} onChange={(event) => updateObject(selected.id, { rotation: Number(event.target.value) })} /></label>
+                    </div>
+                    <div className="designer-prop-grid">
+                      <label>Fondo<input type="color" value={selected.bg} onChange={(event) => updateObject(selected.id, { bg: event.target.value })} /></label>
+                      <label>Marco<input type="color" value={selected.border} onChange={(event) => updateObject(selected.id, { border: event.target.value })} /></label>
+                    </div>
+                    <label className="toggle-line">
+                      <input type="checkbox" checked={Boolean(selected.speak)} onChange={(event) => updateObject(selected.id, { speak: event.target.checked })} />
+                      <Volume2 size={16} />
+                      Leer al hacer doble clic
+                    </label>
+                    <div className="designer-actions">
+                      <button className="command-button secondary compact" onClick={() => void symbolateSelected()}>
+                        Symbolate
+                      </button>
+                      <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation - 15 })}>
+                        Girar -15
+                      </button>
+                      <button className="command-button secondary compact" onClick={() => updateObject(selected.id, { rotation: selected.rotation + 15 })}>
+                        Girar +15
+                      </button>
+                      <button
+                        className="command-button secondary compact"
+                        onClick={() =>
+                          setObjects((current) => [...current.filter((object) => object.id !== selected.id), selected])
+                        }
+                      >
+                        Delante
+                      </button>
+                      <button
+                        className="command-button secondary compact"
+                        onClick={() =>
+                          setObjects((current) => [selected, ...current.filter((object) => object.id !== selected.id)])
+                        }
+                      >
+                        Detras
+                      </button>
+                      <button className="command-button secondary compact" onClick={() => setObjects((current) => [...current, { ...selected, id: uid("obj"), x: selected.x + 20, y: selected.y + 20 }])}>
+                        <Plus size={16} />
+                        Duplicar
+                      </button>
+                      <button className="command-button danger compact" onClick={() => setObjects((current) => current.filter((object) => object.id !== selected.id))}>
+                        Eliminar
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <p className="muted">Selecciona un objeto del lienzo para editarlo.</p>
+                )}
+              </div>
             </>
           )}
         </aside>

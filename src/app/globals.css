@@ -316,6 +316,13 @@
   padding: 18px;
 }
 
+.module-jumpbar,
+.maker-mobile-sectionbar,
+.designer-mobile-sectionbar,
+.topbar-mobile-toggle {
+  display: none;
+}
+
 .maker-panel h1 {
   font-size: 34px;
   font-weight: 920;
@@ -796,6 +803,13 @@
   color: #5b6472;
   font-size: 13px;
   font-weight: 750;
+}
+
+.topbar-heading {
+  align-items: start;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
 }
 
 .designer-panel h1 {
@@ -2411,6 +2425,92 @@ button {
   }
 }
 
+@media (max-width: 1024px) {
+  .module-jumpbar {
+    background: #101827;
+    border: 1px solid #ffffff20;
+    border-radius: 8px;
+    bottom: 10px;
+    box-shadow: 0 12px 40px #10182733;
+    display: grid;
+    gap: 6px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin: 10px 0 14px;
+    padding: 6px;
+    position: sticky;
+    z-index: 20;
+  }
+
+  .module-jumpbar button {
+    background: #ffffff;
+    border: 0;
+    border-radius: 7px;
+    color: #101827;
+    font-size: 13px;
+    font-weight: 850;
+    min-height: 38px;
+    padding: 0 8px;
+  }
+
+  .module-jumpbar .module-jumpbar-accent {
+    background: #117c7a;
+    color: #ffffff;
+  }
+
+  .maker-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .maker-canvas-wrap {
+    order: 1;
+  }
+
+  .maker-panel {
+    order: 2;
+  }
+
+  .maker-canvas-wrap,
+  .maker-panel,
+  .designer-workspace,
+  .designer-panel,
+  .designer-properties {
+    scroll-margin-top: 12px;
+  }
+
+  .maker-mobile-sectionbar,
+  .designer-mobile-sectionbar,
+  .topbar-mobile-toggle {
+    display: inline-flex;
+  }
+
+  .topbar-mobile-toggle {
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .topbar-actions.collapsed {
+    display: none;
+  }
+
+  .designer-shell,
+  .designer-shell.expanded {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .designer-workspace {
+    order: 1;
+  }
+
+  .designer-panel {
+    order: 2;
+  }
+
+  .designer-properties {
+    order: 3;
+  }
+}
+
 @media (max-width: 860px) {
   .workspace {
     display: flex;
@@ -2606,12 +2706,6 @@ button {
 
   .eval-settings-button {
     width: 100%;
-  }
-
-  .designer-shell,
-  .designer-shell.expanded {
-    grid-template-columns: 1fr;
-    min-height: auto;
   }
 
   .designer-panel,

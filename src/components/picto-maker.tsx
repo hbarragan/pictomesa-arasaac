@@ -49,8 +49,15 @@ function fileToDataUrl(file: File) {
   });
 }
 
+function startsCollapsedForCompactScreens() {
+  return typeof window !== "undefined" && window.innerWidth <= 1024;
+}
+
 export function PictoMaker() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
+  const canvasWrapRef = useRef<HTMLElement>(null);
+  const layersRef = useRef<HTMLDivElement>(null);
   const imageCacheRef = useRef<Record<string, HTMLImageElement>>({});
   const inkCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawingRef = useRef(false);
@@ -66,6 +73,8 @@ export function PictoMaker() {
   const [drawMode, setDrawMode] = useState<DrawMode>("move");
   const [layers, setLayers] = useState<MakerLayer[]>([]);
   const [selectedLayerId, setSelectedLayerId] = useState<string | null>(null);
+  const [controlsCollapsed, setControlsCollapsed] = useState(() => startsCollapsedForCompactScreens());
+  const [layersCollapsed, setLayersCollapsed] = useState(() => startsCollapsedForCompactScreens());
   const [message, setMessage] = useState("Sube una o varias imagenes, muevelas y dibuja solo cuando lo necesites.");
 
   const selectedLayer = useMemo(
@@ -323,9 +332,33 @@ export function PictoMaker() {
   return (
     <main className="maker-page">
       <AppNav current="creador" subtitle="Creador de pictos" />
+      <nav className="module-jumpbar" aria-label="Atajos del creador">
+        <button onClick={() => canvasWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+          Lienzo
+        </button>
+        <button
+          onClick={() => {
+            setControlsCollapsed(false);
+            panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        >
+          Ajustes
+        </button>
+        <button
+          onClick={() => {
+            setLayersCollapsed(false);
+            layersRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        >
+          Capas
+        </button>
+        <button className="module-jumpbar-accent" onClick={() => setControlsCollapsed((current) => !current)}>
+          {controlsCollapsed ? "Mostrar" : "Plegar"}
+        </button>
+      </nav>
 
       <section className="maker-shell">
-        <aside className="maker-panel">
+        <aside className="maker-panel" ref={panelRef}>
           <Link className="back-link" href="/">
             <ArrowLeft size={17} />
             Herramientas
@@ -342,172 +375,195 @@ export function PictoMaker() {
             <input className="sr-only" type="file" accept="image/*" multiple onChange={loadImage} />
           </label>
 
-          <div className="control-group stacked">
-            <label>Nombre</label>
-            <input value={name} onChange={(event) => setName(event.target.value)} />
-          </div>
-          <div className="control-group stacked">
-            <label>Texto</label>
-            <input value={text} onChange={(event) => setText(event.target.value)} />
-          </div>
-
-          <div className="maker-grid-controls">
-            <label>
-              Fondo
-              <input type="color" value={bg} onChange={(event) => setBg(event.target.value)} />
-            </label>
-            <label>
-              Marco
-              <input type="color" value={borderColor} onChange={(event) => setBorderColor(event.target.value)} />
-            </label>
-            <label>
-              Borde
-              <input type="number" min={0} max={20} value={borderWidth} onChange={(event) => setBorderWidth(Number(event.target.value))} />
-            </label>
-            <label>
-              Radio
-              <input type="number" min={0} max={80} value={radius} onChange={(event) => setRadius(Number(event.target.value))} />
-            </label>
-            <label>
-              Giro
-              <input
-                type="number"
-                step={15}
-                min={-180}
-                max={180}
-                value={selectedLayer?.rotation ?? 0}
-                onChange={(event) => selectedLayer && updateLayer(selectedLayer.id, { rotation: Number(event.target.value) })}
-                disabled={!selectedLayer}
-              />
-            </label>
-            <label>
-              Tamano
-              <input
-                type="number"
-                min={20}
-                max={320}
-                step={10}
-                value={selectedLayerScale}
-                onChange={(event) => selectedLayer && resizeLayerToScale(selectedLayer.id, Number(event.target.value))}
-                disabled={!selectedLayer}
-              />
-            </label>
-            <label>
-              Pincel
-              <input type="number" min={2} max={50} value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} />
-            </label>
-          </div>
-
-          <div className="segmented full">
-            <button className={drawMode === "move" ? "active" : ""} onClick={() => setDrawMode("move")}>
-              <Move size={15} />
-              Mover
-            </button>
-            <button className={drawMode === "paint" ? "active" : ""} onClick={() => setDrawMode("paint")}>
-              <Paintbrush size={15} />
-              Pintar
-            </button>
-            <button className={drawMode === "erase" ? "active" : ""} onClick={() => setDrawMode("erase")}>
-              <Eraser size={15} />
-              Borrar
+          <div className="maker-mobile-sectionbar">
+            <button
+              className="collapse-button"
+              onClick={() => setControlsCollapsed((current) => !current)}
+              aria-expanded={!controlsCollapsed}
+            >
+              {controlsCollapsed ? "Mostrar ajustes" : "Plegar ajustes"}
             </button>
           </div>
 
-          <div className="maker-layer-panel">
-            <div className="designer-title">
-              <Layers3 size={16} />
-              Imagenes subidas
+          <div className={controlsCollapsed ? "collapsible-content collapsed" : "collapsible-content"}>
+            <div className="control-group stacked">
+              <label>Nombre</label>
+              <input value={name} onChange={(event) => setName(event.target.value)} />
             </div>
-            {layers.length > 0 ? (
-              <div className="maker-layer-list">
-                {layers.slice().reverse().map((layer) => (
-                  <button
-                    key={layer.id}
-                    className={`maker-layer-item ${selectedLayerId === layer.id ? "active" : ""}`}
-                    onClick={() => setSelectedLayerId(layer.id)}
-                  >
-                    {layer.name}
-                  </button>
-                ))}
+            <div className="control-group stacked">
+              <label>Texto</label>
+              <input value={text} onChange={(event) => setText(event.target.value)} />
+            </div>
+
+            <div className="maker-grid-controls">
+              <label>
+                Fondo
+                <input type="color" value={bg} onChange={(event) => setBg(event.target.value)} />
+              </label>
+              <label>
+                Marco
+                <input type="color" value={borderColor} onChange={(event) => setBorderColor(event.target.value)} />
+              </label>
+              <label>
+                Borde
+                <input type="number" min={0} max={20} value={borderWidth} onChange={(event) => setBorderWidth(Number(event.target.value))} />
+              </label>
+              <label>
+                Radio
+                <input type="number" min={0} max={80} value={radius} onChange={(event) => setRadius(Number(event.target.value))} />
+              </label>
+              <label>
+                Giro
+                <input
+                  type="number"
+                  step={15}
+                  min={-180}
+                  max={180}
+                  value={selectedLayer?.rotation ?? 0}
+                  onChange={(event) => selectedLayer && updateLayer(selectedLayer.id, { rotation: Number(event.target.value) })}
+                  disabled={!selectedLayer}
+                />
+              </label>
+              <label>
+                Tamano
+                <input
+                  type="number"
+                  min={20}
+                  max={320}
+                  step={10}
+                  value={selectedLayerScale}
+                  onChange={(event) => selectedLayer && resizeLayerToScale(selectedLayer.id, Number(event.target.value))}
+                  disabled={!selectedLayer}
+                />
+              </label>
+              <label>
+                Pincel
+                <input type="number" min={2} max={50} value={brushSize} onChange={(event) => setBrushSize(Number(event.target.value))} />
+              </label>
+            </div>
+
+            <div className="segmented full">
+              <button className={drawMode === "move" ? "active" : ""} onClick={() => setDrawMode("move")}>
+                <Move size={15} />
+                Mover
+              </button>
+              <button className={drawMode === "paint" ? "active" : ""} onClick={() => setDrawMode("paint")}>
+                <Paintbrush size={15} />
+                Pintar
+              </button>
+              <button className={drawMode === "erase" ? "active" : ""} onClick={() => setDrawMode("erase")}>
+                <Eraser size={15} />
+                Borrar
+              </button>
+            </div>
+
+            <label className="brush-color">
+              Color pincel
+              <input type="color" value={brushColor} onChange={(event) => setBrushColor(event.target.value)} />
+            </label>
+
+            <div className="maker-actions">
+              <button className="command-button secondary" onClick={() => downloadDataUrl(getPng(), `${name}.png`)}>
+                <Download size={18} />
+                Descargar
+              </button>
+              <button className="command-button primary" onClick={saveToLibrary}>
+                <Save size={18} />
+                Guardar
+              </button>
+            </div>
+            <p className="local-library-message">{message}</p>
+          </div>
+
+          <div className="maker-layer-panel" ref={layersRef}>
+            <div className="panel-heading">
+              <div className="designer-title">
+                <Layers3 size={16} />
+                Imagenes subidas
               </div>
-            ) : (
-              <p className="muted">Aun no has subido imagenes.</p>
-            )}
-            <div className="maker-actions compact">
               <button
-                className="command-button secondary compact"
-                onClick={() => selectedLayer && resizeLayerToScale(selectedLayer.id, selectedLayerScale - 10)}
-                disabled={!selectedLayer}
+                className="collapse-button"
+                onClick={() => setLayersCollapsed((current) => !current)}
+                aria-expanded={!layersCollapsed}
               >
-                Mas pequena
-              </button>
-              <button
-                className="command-button secondary compact"
-                onClick={() => selectedLayer && resizeLayerToScale(selectedLayer.id, selectedLayerScale + 10)}
-                disabled={!selectedLayer}
-              >
-                Mas grande
-              </button>
-              <button
-                className="command-button secondary compact"
-                onClick={() => {
-                  if (!selectedLayer) {
-                    return;
-                  }
-                  setLayers((current) => [...current.filter((layer) => layer.id !== selectedLayer.id), selectedLayer]);
-                }}
-                disabled={!selectedLayer}
-              >
-                Delante
-              </button>
-              <button
-                className="command-button secondary compact"
-                onClick={() => {
-                  if (!selectedLayer) {
-                    return;
-                  }
-                  setLayers((current) => [selectedLayer, ...current.filter((layer) => layer.id !== selectedLayer.id)]);
-                }}
-                disabled={!selectedLayer}
-              >
-                Detras
-              </button>
-              <button
-                className="command-button danger compact"
-                onClick={() => {
-                  if (!selectedLayer) {
-                    return;
-                  }
-                  setLayers((current) => current.filter((layer) => layer.id !== selectedLayer.id));
-                  setSelectedLayerId(null);
-                }}
-                disabled={!selectedLayer}
-              >
-                <Trash2 size={15} />
-                Quitar
+                {layersCollapsed ? "Mostrar" : "Minimizar"}
               </button>
             </div>
+            <div className={layersCollapsed ? "collapsible-content collapsed" : "collapsible-content"}>
+              {layers.length > 0 ? (
+                <div className="maker-layer-list">
+                  {layers.slice().reverse().map((layer) => (
+                    <button
+                      key={layer.id}
+                      className={`maker-layer-item ${selectedLayerId === layer.id ? "active" : ""}`}
+                      onClick={() => setSelectedLayerId(layer.id)}
+                    >
+                      {layer.name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="muted">Aun no has subido imagenes.</p>
+              )}
+              <div className="maker-actions compact">
+                <button
+                  className="command-button secondary compact"
+                  onClick={() => selectedLayer && resizeLayerToScale(selectedLayer.id, selectedLayerScale - 10)}
+                  disabled={!selectedLayer}
+                >
+                  Mas pequena
+                </button>
+                <button
+                  className="command-button secondary compact"
+                  onClick={() => selectedLayer && resizeLayerToScale(selectedLayer.id, selectedLayerScale + 10)}
+                  disabled={!selectedLayer}
+                >
+                  Mas grande
+                </button>
+                <button
+                  className="command-button secondary compact"
+                  onClick={() => {
+                    if (!selectedLayer) {
+                      return;
+                    }
+                    setLayers((current) => [...current.filter((layer) => layer.id !== selectedLayer.id), selectedLayer]);
+                  }}
+                  disabled={!selectedLayer}
+                >
+                  Delante
+                </button>
+                <button
+                  className="command-button secondary compact"
+                  onClick={() => {
+                    if (!selectedLayer) {
+                      return;
+                    }
+                    setLayers((current) => [selectedLayer, ...current.filter((layer) => layer.id !== selectedLayer.id)]);
+                  }}
+                  disabled={!selectedLayer}
+                >
+                  Detras
+                </button>
+                <button
+                  className="command-button danger compact"
+                  onClick={() => {
+                    if (!selectedLayer) {
+                      return;
+                    }
+                    setLayers((current) => current.filter((layer) => layer.id !== selectedLayer.id));
+                    setSelectedLayerId(null);
+                  }}
+                  disabled={!selectedLayer}
+                >
+                  <Trash2 size={15} />
+                  Quitar
+                </button>
+              </div>
+            </div>
           </div>
-
-          <label className="brush-color">
-            Color pincel
-            <input type="color" value={brushColor} onChange={(event) => setBrushColor(event.target.value)} />
-          </label>
-
-          <div className="maker-actions">
-            <button className="command-button secondary" onClick={() => downloadDataUrl(getPng(), `${name}.png`)}>
-              <Download size={18} />
-              Descargar
-            </button>
-            <button className="command-button primary" onClick={saveToLibrary}>
-              <Save size={18} />
-              Guardar
-            </button>
-          </div>
-          <p className="local-library-message">{message}</p>
         </aside>
 
-        <section className="maker-canvas-wrap">
+        <section className="maker-canvas-wrap" ref={canvasWrapRef}>
           <canvas
             ref={canvasRef}
             width={900}
