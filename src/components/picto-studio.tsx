@@ -2,7 +2,6 @@
 
 import {
   ArrowDownToLine,
-  Bot,
   Columns3,
   Combine,
   Copy,
@@ -11,23 +10,18 @@ import {
   FileDown,
   FileUp,
   Grid2X2,
-  Home,
   Info,
-  Layers3,
-  Library,
   Plus,
   Printer,
   RotateCcw,
   Rows3,
   Save,
   Search,
-  Settings2,
   Sparkles,
   Trash2,
   Undo2,
   Volume2,
 } from "lucide-react";
-import Link from "next/link";
 import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppNav } from "@/components/app-nav";
 
@@ -1015,33 +1009,6 @@ export function PictoStudio() {
     <main className="min-h-screen bg-[#f8f6f1] text-slate-950">
       <AppNav current="pictogramas" subtitle="Tableros de pictogramas" />
       <section className="studio-shell">
-        <aside className="studio-rail">
-          <div>
-            <div className="brand-mark">
-              <Bot size={22} aria-hidden />
-            </div>
-            <p className="brand-kicker">Amaretea</p>
-          </div>
-
-          <nav className="rail-actions" aria-label="Acciones rápidas">
-            <Link className="rail-icon-link" href="/" title="Inicio" aria-label="Inicio">
-              <Home size={20} />
-            </Link>
-            <button title="Fuentes de pictogramas" aria-label="Fuentes de pictogramas">
-              <Library size={20} />
-            </button>
-            <button title="Tableros" aria-label="Tableros">
-              <Layers3 size={20} />
-            </button>
-            <button title="Ajustes" aria-label="Ajustes">
-              <Settings2 size={20} />
-            </button>
-            <button title="Información legal" aria-label="Información legal" onClick={() => setLegalOpen(true)}>
-              <Info size={20} />
-            </button>
-          </nav>
-        </aside>
-
         <section className="workspace">
           <header className="topbar">
             <div>
