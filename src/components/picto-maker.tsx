@@ -165,6 +165,15 @@ export function PictoMaker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bg, borderColor, borderWidth, layers, radius, selectedLayerId, text]);
 
+  useEffect(() => {
+    const onBeforePrint = () => {
+      setSelectedLayerId(null);
+    };
+
+    window.addEventListener("beforeprint", onBeforePrint);
+    return () => window.removeEventListener("beforeprint", onBeforePrint);
+  }, []);
+
   const loadImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
 
@@ -209,7 +218,7 @@ export function PictoMaker() {
     }
 
     setLayers((current) => [...current, ...nextLayers]);
-    setSelectedLayerId(nextLayers.at(-1)?.id ?? null);
+    setSelectedLayerId(null);
     if (files.length === 1) {
       setName(nextLayers[0]?.name ?? name);
     } else {

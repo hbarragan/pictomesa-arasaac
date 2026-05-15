@@ -17,12 +17,12 @@ import {
   Volume2,
 } from "lucide-react";
 import Link from "next/link";
-import { ChangeEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppNav } from "@/components/app-nav";
 
 type DesignerTool = "select" | "symbol" | "text" | "shape" | "message";
 type DesignerObjectKind = "symbol" | "text" | "shape" | "message";
-type PickerMode = "picto" | "ascii" | "shape" | null;
+type PickerMode = "picto" | "shape" | null;
 
 type PictoKeyword = {
   keyword?: string;
@@ -60,7 +60,6 @@ type DesignerObject = {
 
 const DESIGNER_KEY = "amaretea-boardmaker-designer-v1";
 const LOCAL_LIBRARY_KEY = "pictomesa-local-library-v1";
-const ASCII_SYMBOLS = ["OK", "X", "?", "!", "+", "-", "=", "*", "#", "@", "->", "<-", "^", "v", "<->", ":)", ":(", ":|", "1", "2", "3", "A", "B", "C"];
 const RESIZE_HANDLES = ["nw", "n", "ne", "e", "se", "s", "sw", "w"] as const;
 type ResizeHandle = (typeof RESIZE_HANDLES)[number];
 type ShapeChoice =
@@ -109,18 +108,6 @@ function displayFontSize(object: DesignerObject) {
   const fittedByWidth = object.w / textFactor;
   const fittedByHeight = object.h * 0.82;
   return Math.max(object.fontSize, Math.min(fittedByWidth, fittedByHeight));
-}
-
-function asciiArrowShape(symbol: string) {
-  const shapes: Record<string, string> = {
-    "->": "ascii-arrow-right",
-    "<-": "ascii-arrow-left",
-    "<->": "ascii-arrow-double",
-    "^": "ascii-arrow-up",
-    v: "ascii-arrow-down",
-  };
-
-  return shapes[symbol];
 }
 
 function getKeywordLabel(result: PictoResult) {
@@ -211,11 +198,11 @@ const templateObjects: Record<string, DesignerObject[]> = {
 
 export function BoardmakerDesigner() {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const [objects, setObjects] = useState<DesignerObject[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<DesignerTool>("select");
   const [message, setMessage] = useState("Lienzo libre: arrastra, redimensiona, imprime y exporta.");
-  const [drag, setDrag] = useState<{ id: string; dx: number; dy: number } | null>(null);
   const [resize, setResize] = useState<{
     handle: ResizeHandle;
     id: string;
@@ -261,6 +248,10 @@ export function BoardmakerDesigner() {
 
     return matches.slice(0, 60);
   }, [localPictos, query, useLocalLibrary]);
+
+  const updateObject = useCallback((id: string, patch: Partial<DesignerObject>) => {
+    setObjects((current) => current.map((object) => (object.id === id ? { ...object, ...patch } : object)));
+  }, []);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -312,6 +303,31 @@ export function BoardmakerDesigner() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedId]);
+
+  useEffect(() => {
+    const onPointerMove = (event: globalThis.PointerEvent) => {
+      if (!dragRef.current || resize || rotate) {
+        return;
+      }
+
+      const rect = canvasRef.current?.getBoundingClientRect();
+      updateObject(dragRef.current.id, {
+        x: Math.max(0, event.clientX - (rect?.left ?? 0) - dragRef.current.dx),
+        y: Math.max(0, event.clientY - (rect?.top ?? 0) - dragRef.current.dy),
+      });
+    };
+
+    const onPointerUp = () => {
+      dragRef.current = null;
+    };
+
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", onPointerUp);
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", onPointerUp);
+    };
+  }, [resize, rotate, updateObject]);
 
   useEffect(() => {
     if (!resize) {
@@ -412,10 +428,6 @@ export function BoardmakerDesigner() {
     };
   }, [rotate]);
 
-  const updateObject = (id: string, patch: Partial<DesignerObject>) => {
-    setObjects((current) => current.map((object) => (object.id === id ? { ...object, ...patch } : object)));
-  };
-
   const runPictoSearch = async (mode: "search" | "new" = "search") => {
     if (!useArasaac) {
       setResults([]);
@@ -478,28 +490,6 @@ export function BoardmakerDesigner() {
 
     setObjects((current) => [...current, object]);
     setSelectedId(object.id);
-  };
-
-  const chooseAsciiSymbol = (symbol: string) => {
-    const shapeType = asciiArrowShape(symbol);
-
-    setPendingObject({
-      kind: "symbol",
-      src: undefined,
-      text: symbol,
-      bg: "transparent",
-      border: shapeType ? "#111827" : "transparent",
-      radius: 0,
-      shapeType,
-      fontSize: 44,
-      w: 96,
-      h: 72,
-      rotation: 0,
-      speak: false,
-    });
-    setPickerMode(null);
-    setTool("symbol");
-    setMessage("Simbolo ASCII preparado. Haz clic en el lienzo para pegarlo.");
   };
 
   const chooseArasaacPicto = (result: PictoResult) => {
@@ -685,7 +675,7 @@ export function BoardmakerDesigner() {
   const startResize = (event: PointerEvent<HTMLButtonElement>, object: DesignerObject, handle: ResizeHandle) => {
     event.stopPropagation();
     setSelectedId(object.id);
-    setDrag(null);
+    dragRef.current = null;
     setRotate(null);
     setResize({
       handle,
@@ -703,7 +693,7 @@ export function BoardmakerDesigner() {
   const startRotate = (event: PointerEvent<HTMLButtonElement>, object: DesignerObject) => {
     event.stopPropagation();
     setSelectedId(object.id);
-    setDrag(null);
+    dragRef.current = null;
     setResize(null);
 
     const rect = canvasRef.current?.getBoundingClientRect();
@@ -744,7 +734,7 @@ export function BoardmakerDesigner() {
               <p className="eyebrow">Designer</p>
               <h1>Disenador libre</h1>
               <p>
-                Herramientas de pictos, ASCII, formas, imagen local y exportacion en un mismo espacio de trabajo.
+                Herramientas de pictos, formas, imagen local y exportacion en un mismo espacio de trabajo.
               </p>
 
               <div className="designer-toolgrid">
@@ -758,14 +748,6 @@ export function BoardmakerDesigner() {
                   }}
                 >
                   <Grid2X2 size={16} /> Picto
-                </button>
-                <button
-                  onClick={() => {
-                    setTool("symbol");
-                    setPickerMode("ascii");
-                  }}
-                >
-                  ASCII
                 </button>
                 <button className={tool === "text" ? "active" : ""} onClick={() => setTool("text")}><Type size={16} /> Texto</button>
                 <button
@@ -805,9 +787,6 @@ export function BoardmakerDesigner() {
                   }}
                 >
                   Buscar pictos
-                </button>
-                <button className="command-button secondary compact" onClick={() => setPickerMode("ascii")}>
-                  Abrir ASCII
                 </button>
                 <button className="command-button secondary compact" onClick={() => setPickerMode("shape")}>
                   <Shapes size={16} />
@@ -868,29 +847,21 @@ export function BoardmakerDesigner() {
                   }}
                   onPointerDown={(event) => {
                     event.stopPropagation();
+                    event.preventDefault();
                     if (resize || rotate) {
                       return;
                     }
                     setSelectedId(object.id);
                     const rect = canvasRef.current?.getBoundingClientRect();
-                    setDrag({
+                    dragRef.current = {
                       id: object.id,
                       dx: event.clientX - (rect?.left ?? 0) - object.x,
                       dy: event.clientY - (rect?.top ?? 0) - object.y,
-                    });
+                    };
                     event.currentTarget.setPointerCapture(event.pointerId);
                   }}
-                  onPointerMove={(event) => {
-                    if (drag?.id === object.id) {
-                      const rect = canvasRef.current?.getBoundingClientRect();
-                      updateObject(object.id, {
-                        x: Math.max(0, event.clientX - (rect?.left ?? 0) - drag.dx),
-                        y: Math.max(0, event.clientY - (rect?.top ?? 0) - drag.dy),
-                      });
-                    }
-                  }}
                   onPointerUp={() => {
-                    setDrag(null);
+                    dragRef.current = null;
                     setResize(null);
                     setRotate(null);
                   }}
@@ -900,7 +871,7 @@ export function BoardmakerDesigner() {
                     }
                   }}
                 >
-                  {object.src ? <img src={object.src} alt={object.text} /> : null}
+                  {object.src ? <img src={object.src} alt={object.text} draggable={false} /> : null}
                   {object.text && !isStretchArrow ? <span>{object.text}</span> : null}
                   {selectedId === object.id
                     ? RESIZE_HANDLES.map((handle) => (
@@ -1010,7 +981,7 @@ export function BoardmakerDesigner() {
         <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="designer-picker-title">
           <div className="modal designer-picker-modal">
             <h2 id="designer-picker-title">
-              {pickerMode === "picto" ? "Buscar pictos" : pickerMode === "ascii" ? "Seleccionar simbolo ASCII" : "Seleccionar forma"}
+              {pickerMode === "picto" ? "Buscar pictos" : "Seleccionar forma"}
             </h2>
             {pickerMode === "picto" ? (
               <>
@@ -1069,14 +1040,6 @@ export function BoardmakerDesigner() {
                   <p className="muted">No hay resultados con ese filtro.</p>
                 ) : null}
               </>
-            ) : pickerMode === "ascii" ? (
-              <div className="ascii-symbol-grid">
-                {ASCII_SYMBOLS.map((symbol) => (
-                  <button key={symbol} onClick={() => chooseAsciiSymbol(symbol)}>
-                    <span>{symbol}</span>
-                  </button>
-                ))}
-              </div>
             ) : (
               <div className="shape-picker-grid">
                 <button onClick={() => chooseShape("rect")}><span className="shape-preview rect" /> Rectangulo</button>

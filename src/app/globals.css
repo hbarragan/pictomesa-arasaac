@@ -850,12 +850,17 @@
   max-width: 100%;
   min-height: 0;
   object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .designer-object span {
   font-weight: 900;
   line-height: 1.05;
   overflow-wrap: anywhere;
+  pointer-events: none;
+  user-select: none;
 }
 
 .designer-object.message {
