@@ -1,5 +1,5 @@
-import { EvaluationTools } from "@/components/evaluation-tools";
+import { redirect } from "next/navigation";
 
 export default function EvaluacionPage() {
-  return <EvaluationTools />;
+  redirect("/");
 }

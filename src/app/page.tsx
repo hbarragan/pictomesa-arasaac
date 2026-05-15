@@ -1,86 +1,64 @@
 import { AppNav } from "@/components/app-nav";
-import { ArrowUpRight, Brush, ClipboardCheck, Grid2X2, LayoutDashboard, Library, Settings2 } from "lucide-react";
+import { ArrowRight, Brush, Grid2X2, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 
 const tools = [
   {
     href: "/herramientas/pictogramas",
     icon: Grid2X2,
-    title: "Tableros de pictogramas",
-    text: "Crea escenarios, tableros imprimibles, filas, columnas, pictos propios y proyectos organizados para el aula.",
-    status: "Disponible",
+    title: "Editor de pictogramas",
+    text: "Crear tableros, proyectos y materiales listos para imprimir.",
   },
   {
     href: "/herramientas/disenador",
     icon: LayoutDashboard,
-    title: "Disenador tipo Boardmaker",
-    text: "Lienzo libre con plantillas, objetos, simbolos, textos, formas, botones con voz y exportacion imprimible.",
-    status: "Nuevo",
+    title: "Disenador libre",
+    text: "Montar escenas, mensajes y apoyos visuales en un lienzo abierto.",
   },
   {
     href: "/herramientas/creador-pictos",
     icon: Brush,
-    title: "Creador de pictos propios",
-    text: "Monta una imagen, anade texto, ajusta marco y descarga un picto PNG para incorporarlo a tu biblioteca.",
-    status: "Nuevo",
-  },
-  {
-    href: "/herramientas/evaluacion",
-    icon: ClipboardCheck,
-    title: "Evaluador educacion",
-    text: "Combina evaluacion tradicional con notas y evaluacion especial con criterios, apoyos y registros exportables.",
-    status: "Nuevo",
-  },
-  {
-    href: "/herramientas/pictogramas",
-    icon: Library,
-    title: "Bibliotecas educativas",
-    text: "Combina proveedor publico de pictogramas con imagenes locales del centro, clase, tema o alumno.",
-    status: "En crecimiento",
+    title: "Crear picto propio",
+    text: "Subir imagenes, ajustarlas y guardarlas como pictos para tu biblioteca.",
   },
 ];
 
 export default function Home() {
   return (
     <main className="home-page">
-      <AppNav current="home" subtitle="Herramientas educativas" />
+      <AppNav current="home" showExternal subtitle="Herramientas educativas" />
 
-      <section className="home-hero">
-        <div className="home-hero-copy">
-          <p className="eyebrow">Recursos digitales para educacion</p>
-          <h1>Herramientas sencillas para preparar apoyos visuales, materiales y rutinas de aula.</h1>
+      <section className="home-simple">
+        <div className="home-simple-copy">
+          <p className="eyebrow">Amaretea</p>
+          <h1>Herramientas claras para preparar apoyos visuales.</h1>
           <p>
-            Este espacio nace vinculado a <a href="https://amaretea.es/" target="_blank" rel="noreferrer">amaretea.es</a>,
-            un proyecto impulsado por Yolanda y Monica, maestras de educacion especial, para compartir experiencia,
-            recursos y acompanamiento en torno al TEA y la educacion inclusiva.
+            Un espacio sencillo para crear tableros, montar pictogramas propios y construir materiales de apoyo para el
+            aula.
           </p>
           <div className="home-actions">
             <Link className="command-button primary" href="/herramientas/pictogramas">
-              Abrir pictogramas
-              <ArrowUpRight size={18} />
-            </Link>
-            <Link className="command-button secondary" href="/herramientas/creador-pictos">
-              Crear picto propio
+              Abrir editor
+              <ArrowRight size={18} />
             </Link>
           </div>
         </div>
 
-        <div className="home-hero-panel" aria-label="Resumen de herramientas">
-          <div>
-            <Settings2 size={20} />
-            <strong>Suite en crecimiento</strong>
-          </div>
+        <div className="home-simple-note">
+          <strong>amaretea.es</strong>
           <p>
-            La web se organiza como un conjunto de herramientas para docentes, familias y profesionales del sector
-            educativo. El editor de pictogramas es el primer modulo; el menu ira incorporando nuevos recursos.
+            Proyecto impulsado por maestras de educacion especial para compartir recursos practicos y faciles de usar.
           </p>
+          <a href="https://amaretea.es/" target="_blank" rel="noreferrer">
+            Ir a amaretea.es
+          </a>
         </div>
       </section>
 
-      <section className="tools-section" aria-labelledby="tools-title">
+      <section className="tools-section home-tools-minimal" aria-labelledby="tools-title">
         <div className="section-heading">
           <p className="eyebrow">Herramientas</p>
-          <h2 id="tools-title">Modulos disponibles</h2>
+          <h2 id="tools-title">Accesos principales</h2>
         </div>
         <div className="tool-cards">
           {tools.map((tool) => {
@@ -88,9 +66,8 @@ export default function Home() {
 
             return (
               <Link key={tool.title} className="tool-card" href={tool.href}>
-                <div>
+                <div className="tool-card-icon">
                   <Icon size={22} />
-                  <span>{tool.status}</span>
                 </div>
                 <h3>{tool.title}</h3>
                 <p>{tool.text}</p>
@@ -98,13 +75,6 @@ export default function Home() {
             );
           })}
         </div>
-      </section>
-
-      <section className="home-note">
-        <p>
-          Los proyectos se guardan en el navegador. Exporta copias periodicamente si usas estas herramientas con
-          materiales importantes del aula.
-        </p>
       </section>
     </main>
   );

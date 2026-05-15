@@ -28,7 +28,7 @@ import {
   Volume2,
 } from "lucide-react";
 import Link from "next/link";
-import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppNav } from "@/components/app-nav";
 
 type Language = "es" | "en" | "fr" | "pt" | "ca" | "it" | "de";
@@ -531,7 +531,7 @@ export function PictoStudio() {
     }
   }, [hydrated, localPath, localPictos]);
 
-  const updateActiveProject = (updater: (project: Project) => Project) => {
+  const updateActiveProject = useCallback((updater: (project: Project) => Project) => {
     setProjects((current) => {
       undoStackRef.current = [...undoStackRef.current.slice(-29), snapshotProjects(current)];
 
@@ -539,7 +539,7 @@ export function PictoStudio() {
         project.id === activeProject.id ? { ...updater(project), updatedAt: new Date().toISOString() } : project,
       );
     });
-  };
+  }, [activeProject.id]);
 
   const undoLastChange = () => {
     const previous = undoStackRef.current.pop();
@@ -549,31 +549,86 @@ export function PictoStudio() {
     }
   };
 
+  const createNewProject = () => {
+    const project = makeProject(`Proyecto ${projects.length + 1}`);
+    setProjects((current) => [project, ...current]);
+    setActiveProjectId(project.id);
+    setSelectedCellId(project.boards[0]?.cells[0]?.id ?? null);
+  };
+
+  const deleteActiveProject = () => {
+    const question =
+      projects.length === 1
+        ? "Vas a borrar el unico proyecto. Se creara uno nuevo vacio. ¿Quieres continuar?"
+        : `¿Seguro que quieres borrar el proyecto \"${activeProject.name}\"?`;
+
+    if (!window.confirm(question)) {
+      return;
+    }
+
+    if (projects.length === 1) {
+      const replacement = makeProject();
+      setProjects([replacement]);
+      setActiveProjectId(replacement.id);
+      setSelectedCellId(replacement.boards[0]?.cells[0]?.id ?? null);
+      return;
+    }
+
+    const next = projects.filter((project) => project.id !== activeProject.id);
+    setProjects(next);
+    setActiveProjectId(next[0].id);
+    setSelectedCellId(next[0].boards[0]?.cells[0]?.id ?? null);
+  };
+
+  const updateActiveBoard = useCallback((updater: (board: Board) => Board) => {
+    updateActiveProject((project) => ({
+      ...project,
+      boards: project.boards.map((board) => (board.id === activeBoard.id ? updater(board) : board)),
+    }));
+  }, [activeBoard.id, updateActiveProject]);
+
+  const updateCell = useCallback((cellId: string, patch: Partial<PictoCell>) => {
+    updateActiveBoard((board) => ({
+      ...board,
+      cells: board.cells.map((cell) => (cell.id === cellId ? { ...cell, ...patch } : cell)),
+    }));
+  }, [updateActiveBoard]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.tagName === "SELECT" ||
+        target?.isContentEditable;
+
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
         event.preventDefault();
         undoLastChange();
+        return;
+      }
+
+      if (!isTyping && (event.key === "Delete" || event.key === "Backspace") && selectedCell) {
+        event.preventDefault();
+        updateCell(selectedCell.id, {
+          source: undefined,
+          pictoId: undefined,
+          localPictoId: undefined,
+          localSrc: undefined,
+          secondarySource: undefined,
+          secondaryPictoId: undefined,
+          secondaryLocalSrc: undefined,
+          secondaryLabel: undefined,
+          label: "",
+          note: "",
+        });
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  const updateActiveBoard = (updater: (board: Board) => Board) => {
-    updateActiveProject((project) => ({
-      ...project,
-      boards: project.boards.map((board) => (board.id === activeBoard.id ? updater(board) : board)),
-    }));
-  };
-
-  const updateCell = (cellId: string, patch: Partial<PictoCell>) => {
-    updateActiveBoard((board) => ({
-      ...board,
-      cells: board.cells.map((cell) => (cell.id === cellId ? { ...cell, ...patch } : cell)),
-    }));
-  };
+  }, [selectedCell, updateCell]);
 
   const runSearch = async (mode = searchMode) => {
     if (!useArasaac) {
@@ -1028,16 +1083,13 @@ export function PictoStudio() {
                 aria-label="Carpeta del proyecto"
                 placeholder="Carpeta"
               />
-              <button
-                className="icon-button"
-                title="Nuevo proyecto"
-                onClick={() => {
-                  const project = makeProject("Nuevo proyecto");
-                  setProjects((current) => [project, ...current]);
-                  setActiveProjectId(project.id);
-                }}
-              >
+              <button className="command-button secondary" title="Crear proyecto nuevo" onClick={createNewProject}>
                 <Plus size={18} />
+                Nuevo proyecto
+              </button>
+              <button className="command-button danger" title="Borrar proyecto actual" onClick={deleteActiveProject}>
+                <Trash2 size={18} />
+                Borrar proyecto
               </button>
               <button className="command-button" onClick={exportProject}>
                 <FileDown size={18} />
@@ -1061,24 +1113,6 @@ export function PictoStudio() {
               <input ref={fileInputRef} className="sr-only" type="file" accept="application/json" onChange={importProject} />
             </div>
           </header>
-
-          <div className="cache-warning">
-            <Info size={18} />
-            <p>
-              Los proyectos se guardan solo en la cache/localStorage de este navegador. Si borras la cache o los datos
-              del sitio, perderas los proyectos. Esta herramienta no guarda datos en servidor y solo consulta fuentes
-              externas cuando las activas. Recomendamos exportar una copia cada cierto tiempo.
-            </p>
-            <button onClick={() => setNoticeOpen(true)}>Ver aviso</button>
-          </div>
-
-          <div className="amaretea-notice">
-            <Info size={18} />
-            <p>
-              Esta web ha sido creada desde <a href="https://amaretea.es/" target="_blank" rel="noreferrer">amaretea.es</a> sin animo de comercializar pictogramas, con el fin de ayudar en el dia a dia de docentes de educacion especial. Cada usuario es responsable del uso final, adaptacion, impresion o distribucion de sus materiales.
-            </p>
-            <button onClick={() => setLegalOpen(true)}>Ver legal</button>
-          </div>
 
           <nav className="mobile-jumpbar" aria-label="Navegacion movil">
             <button onClick={() => canvasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
@@ -1511,8 +1545,8 @@ export function PictoStudio() {
                 <p className="print-attribution">
                   Proveedor de pictogramas: ARASAAC. Autor: Sergio Palao. Titular: Gobierno de Aragon. Origen:
                   https://arasaac.org. Licencia: Creative Commons BY-NC-SA. Documento generado con una herramienta no
-                  comercial creada desde amaretea.es para apoyar a docentes de educacion especial. El usuario es
-                  responsable del uso, adaptacion, impresion, revision de derechos y distribucion de este material.
+                  comercial creada por Amaretea para apoyar a docentes de educacion especial. El usuario es responsable
+                  del uso, adaptacion, impresion, revision de derechos y distribucion de este material.
                 </p>
               </div>
             </section>
@@ -1878,16 +1912,7 @@ export function PictoStudio() {
                     </button>
                     <button
                       className="command-button danger"
-                      onClick={() => {
-                        if (projects.length === 1) {
-                          setProjects([makeProject()]);
-                          return;
-                        }
-
-                        const next = projects.filter((project) => project.id !== activeProject.id);
-                        setProjects(next);
-                        setActiveProjectId(next[0].id);
-                      }}
+                      onClick={deleteActiveProject}
                     >
                       <Trash2 size={17} />
                       Proyecto
@@ -1904,6 +1929,26 @@ export function PictoStudio() {
               </div>
               </div>
             </aside>
+          </div>
+
+          <div className="info-notes-footer">
+            <div className="cache-warning">
+              <Info size={18} />
+              <p>
+                Los proyectos se guardan solo en la cache/localStorage de este navegador. Si borras la cache o los datos
+                del sitio, perderas los proyectos. Exporta una copia periodicamente.
+              </p>
+              <button onClick={() => setNoticeOpen(true)}>Ver aviso</button>
+            </div>
+
+            <div className="amaretea-notice">
+              <Info size={18} />
+              <p>
+                Herramienta educativa sin animo comercial. El usuario es responsable del uso final, la impresion y la
+                revision de derechos del material que genera.
+              </p>
+              <button onClick={() => setLegalOpen(true)}>Ver legal</button>
+            </div>
           </div>
         </section>
       </section>
@@ -1934,7 +1979,8 @@ export function PictoStudio() {
           <div className="modal legal-modal">
             <h2 id="legal-title">Aviso legal y uso de imagenes</h2>
             <p>
-              Esta web ha sido creada desde <a href="https://amaretea.es/" target="_blank" rel="noreferrer">amaretea.es</a> sin animo de comercializar pictogramas ni generar ingresos por su uso, con el fin de ayudar en el dia a dia de docentes de educacion especial.
+              Esta web ha sido creada por Amaretea sin animo de comercializar pictogramas ni generar ingresos por su
+              uso, con el fin de ayudar en el dia a dia de docentes de educacion especial.
             </p>
             <p>
               ARASAAC se utiliza unicamente como proveedor publico de pictogramas cuando esa fuente esta activada. Sus
