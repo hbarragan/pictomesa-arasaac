@@ -1,5 +1,5 @@
 import { AppNav } from "@/components/app-nav";
-import { ArrowRight, Brush, Grid2X2, LayoutDashboard } from "lucide-react";
+import { ArrowRight, Grid2X2, LayoutDashboard } from "lucide-react";
 import Link from "next/link";
 
 const tools = [
@@ -14,12 +14,6 @@ const tools = [
     icon: LayoutDashboard,
     title: "Disenador libre",
     text: "Montar escenas, mensajes y apoyos visuales en un lienzo abierto.",
-  },
-  {
-    href: "/herramientas/creador-pictos",
-    icon: Brush,
-    title: "Crear picto propio",
-    text: "Subir imagenes, ajustarlas y guardarlas como pictos para tu biblioteca.",
   },
 ];
 

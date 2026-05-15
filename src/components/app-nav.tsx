@@ -3,7 +3,7 @@
 import Link from "next/link";
 
 type AppNavProps = {
-  current?: "home" | "pictogramas" | "disenador" | "creador" | "evaluacion";
+  current?: "home" | "pictogramas" | "disenador" | "evaluacion";
   showExternal?: boolean;
   subtitle: string;
 };
@@ -11,7 +11,6 @@ type AppNavProps = {
 const items = [
   { href: "/herramientas/pictogramas", label: "Pictogramas", key: "pictogramas" },
   { href: "/herramientas/disenador", label: "Disenador", key: "disenador" },
-  { href: "/herramientas/creador-pictos", label: "Crear picto", key: "creador" },
 ] as const;
 
 export function AppNav({ current, showExternal = false, subtitle }: AppNavProps) {

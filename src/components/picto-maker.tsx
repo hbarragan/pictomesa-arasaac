@@ -331,7 +331,7 @@ export function PictoMaker() {
 
   return (
     <main className="maker-page">
-      <AppNav current="creador" subtitle="Creador de pictos" />
+      <AppNav current="home" subtitle="Creador de pictos" />
       <nav className="module-jumpbar" aria-label="Atajos del creador">
         <button onClick={() => canvasWrapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
           Lienzo

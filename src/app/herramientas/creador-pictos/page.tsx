@@ -1,5 +1,5 @@
-import { PictoMaker } from "@/components/picto-maker";
+import { redirect } from "next/navigation";
 
 export default function CreadorPictosPage() {
-  return <PictoMaker />;
+  redirect("/");
 }
