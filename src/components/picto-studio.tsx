@@ -38,9 +38,18 @@ type ImageOptions = {
   hair: HairKey;
 };
 
+type CellPictoItem = {
+  label: string;
+  localPictoId?: string;
+  localSrc?: string;
+  pictoId?: number;
+  source: PictoSource;
+};
+
 type PictoCell = {
   id: string;
   label: string;
+  nestedPictos?: CellPictoItem[];
   source?: PictoSource;
   pictoId?: number;
   localPictoId?: string;
@@ -287,20 +296,45 @@ function pictogramUrl(id: number, options: ImageOptions) {
   return `/api/arasaac/pictograms/${id}?${params.toString()}`;
 }
 
-function cellHasPrimary(cell: PictoCell) {
-  return Boolean(cell.pictoId || cell.localSrc);
+function legacyCellPictos(cell: PictoCell) {
+  const pictos: CellPictoItem[] = [];
+
+  if (cell.pictoId || cell.localSrc) {
+    pictos.push({
+      source: cell.source ?? (cell.localSrc ? "local" : "arasaac"),
+      pictoId: cell.pictoId,
+      localPictoId: cell.localPictoId,
+      localSrc: cell.localSrc,
+      label: cell.label,
+    });
+  }
+
+  if (cell.secondaryPictoId || cell.secondaryLocalSrc) {
+    pictos.push({
+      source: cell.secondarySource ?? (cell.secondaryLocalSrc ? "local" : "arasaac"),
+      pictoId: cell.secondaryPictoId,
+      localSrc: cell.secondaryLocalSrc,
+      label: cell.secondaryLabel ?? cell.label,
+    });
+  }
+
+  return pictos;
+}
+
+function getCellPictos(cell: PictoCell) {
+  if (Array.isArray(cell.nestedPictos) && cell.nestedPictos.length > 0) {
+    return cell.nestedPictos;
+  }
+
+  return legacyCellPictos(cell);
 }
 
 function cellHasAnyImage(cell: PictoCell) {
-  return Boolean(cell.pictoId || cell.localSrc || cell.secondaryPictoId || cell.secondaryLocalSrc);
+  return getCellPictos(cell).length > 0;
 }
 
-function primaryImageSrc(cell: PictoCell) {
-  return cell.localSrc ?? (cell.pictoId ? pictogramUrl(cell.pictoId, cell.options) : "");
-}
-
-function secondaryImageSrc(cell: PictoCell) {
-  return cell.secondaryLocalSrc ?? (cell.secondaryPictoId ? pictogramUrl(cell.secondaryPictoId, cell.options) : "");
+function cellPictoSrc(item: CellPictoItem, options: ImageOptions) {
+  return item.localSrc ?? (item.pictoId ? pictogramUrl(item.pictoId, options) : "");
 }
 
 function fileToDataUrl(file: File) {
@@ -363,6 +397,55 @@ function snapshotProjects(projects: Project[]) {
   return JSON.parse(JSON.stringify(projects)) as Project[];
 }
 
+function makeCellPictoFromPayload(payload: DragPictoPayload): CellPictoItem {
+  if (payload.source === "local") {
+    return {
+      source: "local",
+      localPictoId: payload.id,
+      localSrc: payload.src,
+      label: payload.label,
+    };
+  }
+
+  return {
+    source: "arasaac",
+    pictoId: payload.id,
+    label: payload.label,
+  };
+}
+
+function makeCellPictoFromResult(result: PictoResult): CellPictoItem {
+  return {
+    source: "arasaac",
+    pictoId: result._id,
+    label: getKeywordLabel(result),
+  };
+}
+
+function makeCellPictoFromLocalPicto(picto: LocalPicto): CellPictoItem {
+  return {
+    source: "local",
+    localPictoId: picto.id,
+    localSrc: picto.src,
+    label: picto.name,
+  };
+}
+
+function canonicalCellPictoPatch(cell: PictoCell, pictos: CellPictoItem[], fallbackLabel?: string): Partial<PictoCell> {
+  return {
+    nestedPictos: pictos,
+    source: undefined,
+    pictoId: undefined,
+    localPictoId: undefined,
+    localSrc: undefined,
+    secondarySource: undefined,
+    secondaryPictoId: undefined,
+    secondaryLocalSrc: undefined,
+    secondaryLabel: undefined,
+    label: cell.label || fallbackLabel || pictos[0]?.label || "",
+  };
+}
+
 export function PictoStudio() {
   const [projects, setProjects] = useState<Project[]>(() => [makeInitialProject()]);
   const [activeProjectId, setActiveProjectId] = useState(projects[0].id);
@@ -420,6 +503,7 @@ export function PictoStudio() {
     () => activeBoard.cells.find((cell) => cell.id === effectiveSelectedCellId) ?? null,
     [activeBoard.cells, effectiveSelectedCellId],
   );
+  const selectedCellPictos = useMemo(() => (selectedCell ? getCellPictos(selectedCell) : []), [selectedCell]);
 
   const printableRows = useMemo(() => {
     const rows: PictoCell[][] = [];
@@ -614,6 +698,7 @@ export function PictoStudio() {
       if (!isTyping && (event.key === "Delete" || event.key === "Backspace") && selectedCell) {
         event.preventDefault();
         updateCell(selectedCell.id, {
+          nestedPictos: [],
           source: undefined,
           pictoId: undefined,
           localPictoId: undefined,
@@ -773,82 +858,42 @@ export function PictoStudio() {
 
   const setCellFromDragPayload = (cellId: string, payload: DragPictoPayload) => {
     const currentCell = activeBoard.cells.find((cell) => cell.id === cellId);
-    const shouldCombine = Boolean(currentCell && cellHasPrimary(currentCell) && !currentCell.secondaryPictoId && !currentCell.secondaryLocalSrc);
 
-    if (payload.source === "local") {
-      updateCell(
-        cellId,
-        shouldCombine
-          ? {
-              secondarySource: "local",
-              secondaryLocalSrc: payload.src,
-              secondaryLabel: payload.label,
-            }
-          : {
-              source: "local",
-              localPictoId: payload.id,
-              localSrc: payload.src,
-              pictoId: undefined,
-              label: payload.label,
-            },
-      );
+    if (!currentCell) {
       return;
     }
 
-    updateCell(
-      cellId,
-      shouldCombine
-        ? {
-            secondarySource: "arasaac",
-            secondaryPictoId: payload.id,
-            secondaryLabel: payload.label,
-          }
-        : {
-            source: "arasaac",
-            pictoId: payload.id,
-            localPictoId: undefined,
-            localSrc: undefined,
-            label: payload.label,
-            options: {
-              ...(activeBoard.cells.find((cell) => cell.id === cellId)?.options ?? defaultOptions),
-              color: payload.aacColor || payload.aac ? true : true,
-            },
-          },
-    );
+    const nextPictos = [...getCellPictos(currentCell), makeCellPictoFromPayload(payload)];
+    updateCell(cellId, {
+      ...canonicalCellPictoPatch(currentCell, nextPictos, payload.label),
+      options:
+        payload.source === "arasaac"
+          ? {
+              ...currentCell.options,
+              color: payload.aacColor || payload.aac ? true : currentCell.options.color,
+            }
+          : currentCell.options,
+    });
   };
 
   const addPictoToBoard = (result: PictoResult) => {
     const target =
       selectedCell ??
-      activeBoard.cells.find((cell) => !cell.pictoId && !cell.label) ??
+      activeBoard.cells.find((cell) => !cellHasAnyImage(cell) && !cell.label) ??
       activeBoard.cells[0];
 
     if (!target) {
       return;
     }
 
-    if (cellHasPrimary(target) && !target.secondaryPictoId && !target.secondaryLocalSrc) {
-      updateCell(target.id, {
-        secondarySource: "arasaac",
-        secondaryPictoId: result._id,
-        secondaryLabel: getKeywordLabel(result),
-      });
-    } else {
-      updateCell(target.id, {
-        source: "arasaac",
-        pictoId: result._id,
-        localPictoId: undefined,
-        localSrc: undefined,
-        secondaryPictoId: undefined,
-        secondaryLocalSrc: undefined,
-        secondaryLabel: undefined,
-        label: getKeywordLabel(result),
-        options: {
-          ...target.options,
-          color: result.aacColor || result.aac ? true : target.options.color,
-        },
-      });
-    }
+    const nextPictos = [...getCellPictos(target), makeCellPictoFromResult(result)];
+    updateCell(target.id, {
+      ...canonicalCellPictoPatch(target, nextPictos, getKeywordLabel(result)),
+      options: {
+        ...target.options,
+        color: result.aacColor || result.aac ? true : target.options.color,
+      },
+    });
     setSelectedCellId(target.id);
 
     if (window.matchMedia("(max-width: 860px)").matches) {
@@ -862,31 +907,15 @@ export function PictoStudio() {
   const addLocalPictoToBoard = (picto: LocalPicto) => {
     const target =
       selectedCell ??
-      activeBoard.cells.find((cell) => !cell.pictoId && !cell.localSrc && !cell.label) ??
+      activeBoard.cells.find((cell) => !cellHasAnyImage(cell) && !cell.label) ??
       activeBoard.cells[0];
 
     if (!target) {
       return;
     }
 
-    if (cellHasPrimary(target) && !target.secondaryPictoId && !target.secondaryLocalSrc) {
-      updateCell(target.id, {
-        secondarySource: "local",
-        secondaryLocalSrc: picto.src,
-        secondaryLabel: picto.name,
-      });
-    } else {
-      updateCell(target.id, {
-        source: "local",
-        localPictoId: picto.id,
-        localSrc: picto.src,
-        pictoId: undefined,
-        secondaryPictoId: undefined,
-        secondaryLocalSrc: undefined,
-        secondaryLabel: undefined,
-        label: picto.name,
-      });
-    }
+    const nextPictos = [...getCellPictos(target), makeCellPictoFromLocalPicto(picto)];
+    updateCell(target.id, canonicalCellPictoPatch(target, nextPictos, picto.name));
     setSelectedCellId(target.id);
 
     if (window.matchMedia("(max-width: 860px)").matches) {
@@ -1402,6 +1431,7 @@ export function PictoStudio() {
                 >
                   {activeBoard.cells.map((cell) => {
                     const selected = cell.id === effectiveSelectedCellId;
+                    const pictos = getCellPictos(cell);
 
                     return (
                       <button
@@ -1440,24 +1470,17 @@ export function PictoStudio() {
                         {activeBoard.labelPosition === "top" ? (
                           <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
                         ) : null}
-                        <div className={`picto-image-wrap ${secondaryImageSrc(cell) ? "combined" : ""}`} style={{ backgroundColor: cell.imageBg ?? "transparent" }}>
-                          {primaryImageSrc(cell) ? (
+                        <div className={`picto-image-wrap pictos-${Math.min(Math.max(pictos.length, 1), 5)}`} style={{ backgroundColor: cell.imageBg ?? "transparent" }}>
+                          {pictos.map((picto, index) => (
                             <img
-                              src={primaryImageSrc(cell)}
-                              alt={cell.label}
+                              key={`${cell.id}-${picto.source}-${picto.pictoId ?? picto.localPictoId ?? index}`}
+                              src={cellPictoSrc(picto, cell.options)}
+                              alt={picto.label}
                               draggable={false}
                               style={{ transform: `rotate(${cell.rotation ?? 0}deg)` }}
                             />
-                          ) : null}
-                          {secondaryImageSrc(cell) ? (
-                            <img
-                              src={secondaryImageSrc(cell)}
-                              alt={cell.secondaryLabel ?? cell.label}
-                              draggable={false}
-                              style={{ transform: `rotate(${cell.rotation ?? 0}deg)` }}
-                            />
-                          ) : null}
-                          {!primaryImageSrc(cell) && !secondaryImageSrc(cell) ? (
+                          ))}
+                          {pictos.length === 0 ? (
                             <Plus size={26} aria-hidden />
                           ) : null}
                         </div>
@@ -1479,6 +1502,7 @@ export function PictoStudio() {
                   {printableRows.flatMap((row, rowIndex) =>
                     row.map((cell, cellIndex) => {
                       const hasImage = cellHasAnyImage(cell);
+                      const pictos = getCellPictos(cell);
 
                       if (!hasImage) {
                         return (
@@ -1512,23 +1536,16 @@ export function PictoStudio() {
                           {activeBoard.labelPosition === "top" ? (
                             <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
                           ) : null}
-                          <div className={`picto-image-wrap ${secondaryImageSrc(cell) ? "combined" : ""}`} style={{ backgroundColor: cell.imageBg ?? "transparent" }}>
-                            {primaryImageSrc(cell) ? (
+                          <div className={`picto-image-wrap pictos-${Math.min(Math.max(pictos.length, 1), 5)}`} style={{ backgroundColor: cell.imageBg ?? "transparent" }}>
+                            {pictos.map((picto, index) => (
                               <img
-                                src={primaryImageSrc(cell)}
-                                alt={cell.label}
+                                key={`print-${cell.id}-${picto.source}-${picto.pictoId ?? picto.localPictoId ?? index}`}
+                                src={cellPictoSrc(picto, cell.options)}
+                                alt={picto.label}
                                 draggable={false}
                                 style={{ transform: `rotate(${cell.rotation ?? 0}deg)` }}
                               />
-                            ) : null}
-                            {secondaryImageSrc(cell) ? (
-                              <img
-                                src={secondaryImageSrc(cell)}
-                                alt={cell.secondaryLabel ?? cell.label}
-                                draggable={false}
-                                style={{ transform: `rotate(${cell.rotation ?? 0}deg)` }}
-                              />
-                            ) : null}
+                            ))}
                           </div>
                           {activeBoard.labelPosition === "bottom" ? (
                             <span style={{ fontSize: activeBoard.fontSize }}>{cell.label || " "}</span>
@@ -1778,22 +1795,24 @@ export function PictoStudio() {
                         onChange={(event) => updateCell(selectedCell.id, { imageBg: event.target.value })}
                       />
                     </div>
-                    {selectedCell.secondaryPictoId || selectedCell.secondaryLocalSrc ? (
+                    {selectedCellPictos.length > 1 ? (
                       <button
                         className="command-button secondary compact"
                         onClick={() =>
-                          updateCell(selectedCell.id, {
-                            secondarySource: undefined,
-                            secondaryPictoId: undefined,
-                            secondaryLocalSrc: undefined,
-                            secondaryLabel: undefined,
-                          })
+                          updateCell(
+                            selectedCell.id,
+                            canonicalCellPictoPatch(
+                              selectedCell,
+                              selectedCellPictos.slice(0, -1),
+                              selectedCellPictos[0]?.label,
+                            ),
+                          )
                         }
                       >
-                        Quitar segundo picto
+                        Quitar ultimo picto
                       </button>
                     ) : (
-                      <p>Selecciona una celda con imagen y pulsa otro resultado para combinar dos pictos.</p>
+                      <p>Selecciona la misma celda y sigue anadiendo pictos para meter varios dentro del mismo cuadro.</p>
                     )}
                   </div>
 
@@ -1866,6 +1885,7 @@ export function PictoStudio() {
                       className="command-button"
                       onClick={() =>
                         updateCell(selectedCell.id, {
+                          nestedPictos: [],
                           source: undefined,
                           pictoId: undefined,
                           localPictoId: undefined,
@@ -1897,7 +1917,7 @@ export function PictoStudio() {
                     <button
                       className="command-button"
                       onClick={() => {
-                        const empty = activeBoard.cells.find((cell) => !cell.pictoId && !cell.localSrc && !cell.label);
+                        const empty = activeBoard.cells.find((cell) => !cellHasAnyImage(cell) && !cell.label);
                         if (empty) {
                           updateCell(empty.id, { ...selectedCell, id: empty.id });
                           setSelectedCellId(empty.id);

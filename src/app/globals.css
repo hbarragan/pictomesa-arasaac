@@ -2203,23 +2203,36 @@ button {
 
 .picto-image-wrap {
   align-items: center;
-  display: flex;
+  display: grid;
   flex: 1;
   gap: 4px;
-  justify-content: center;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
   min-height: 0;
   overflow: hidden;
   width: 100%;
 }
 
-.picto-image-wrap.combined img {
-  max-width: 50%;
+.picto-image-wrap.pictos-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.picto-image-wrap.pictos-3,
+.picto-image-wrap.pictos-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.picto-image-wrap.pictos-5 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .picto-image-wrap img {
+  height: 100%;
   max-height: 100%;
   max-width: 100%;
+  min-width: 0;
   object-fit: contain;
+  width: 100%;
 }
 
 .designer-box {
